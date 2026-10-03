@@ -31,7 +31,7 @@ MANC v1.2.1 is a better fit: it has ~23,650 VNC neurons, explicit sensory, intri
 
 The graph is SciPy CSR sparse storage. No network access is needed after checkout; raw source data are only needed to regenerate the compact artifact.
 
-## Setup (macOS)
+## Setup (macOS / Linux)
 
 ```bash
 cd flympics
@@ -40,6 +40,18 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
+
+### Setup (Windows, PowerShell)
+
+```powershell
+cd flympics
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+If PowerShell blocks the activation script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once. Use Python 3.10 to 3.12. After activation, every `python -m ...` command below is the same on all systems. The `--view` window needs a desktop session; the browser viewer works anywhere.
 
 ## Run
 

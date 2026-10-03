@@ -1,0 +1,136 @@
+manc_121_id,role,cell_type,neurotransmitter_predicted
+10075,intrinsic,IN10B001,acetylcholine
+10127,intrinsic,IN00A003,gaba
+101952,intrinsic,IN23B024,acetylcholine
+101962,intrinsic,IN09A039,gaba
+10230,intrinsic,IN13A009,glutamate
+102663,intrinsic,IN09A016,gaba
+10268,intrinsic,IN13B001,gaba
+10293,intrinsic,IN09A001,gaba
+10374,intrinsic,IN05B010,gaba
+10424,intrinsic,IN14A001,gaba
+10529,intrinsic,IN00A007,gaba
+10584,intrinsic,IN13A002,gaba
+10607,intrinsic,IN26X001,gaba
+10627,intrinsic,IN13B005,gaba
+10655,intrinsic,IN13A004,gaba
+10665,intrinsic,IN01A007,acetylcholine
+10686,intrinsic,INXXX004,gaba
+10714,intrinsic,IN01A004,acetylcholine
+10820,intrinsic,IN13A002,gaba
+10926,intrinsic,IN12B004,gaba
+10979,intrinsic,IN09A004,gaba
+11039,intrinsic,IN12B004,gaba
+11282,intrinsic,IN19A013,gaba
+11415,intrinsic,IN21A013,glutamate
+11499,intrinsic,INXXX007,gaba
+11531,intrinsic,IN21A011,glutamate
+11590,intrinsic,IN09A009,gaba
+11688,intrinsic,IN01A018,acetylcholine
+11734,intrinsic,IN03A007,acetylcholine
+11782,intrinsic,IN14A005,glutamate
+11836,intrinsic,IN17A022,acetylcholine
+11936,intrinsic,IN19A016,gaba
+11976,intrinsic,IN01A015,acetylcholine
+11982,intrinsic,IN21A009,glutamate
+12109,intrinsic,IN00A003,gaba
+12260,intrinsic,IN21A007,glutamate
+12376,intrinsic,IN13A003,gaba
+12412,intrinsic,IN20A.22A003,acetylcholine
+12567,intrinsic,IN19A016,gaba
+12789,intrinsic,IN00A011,gaba
+12869,intrinsic,IN00A020,gaba
+12957,intrinsic,IN00A011,gaba
+13176,intrinsic,IN17A025,acetylcholine
+13264,intrinsic,IN21A019,glutamate
+13906,intrinsic,IN00A011,gaba
+13980,intrinsic,IN03B035,gaba
+14041,intrinsic,IN13A019,gaba
+14196,intrinsic,IN16B037,glutamate
+14299,intrinsic,IN01B007,gaba
+14380,intrinsic,IN03B035,gaba
+14808,intrinsic,IN09A022,gaba
+15034,intrinsic,IN16B045,glutamate
+153333,intrinsic,IN19A098,gaba
+15679,intrinsic,IN00A028,gaba
+15814,intrinsic,IN16B038,glutamate
+15848,intrinsic,IN19A076,gaba
+159848,intrinsic,IN14A086,glutamate
+16012,intrinsic,IN09A022,gaba
+16144,intrinsic,IN00A014,gaba
+163638,intrinsic,IN21A006,glutamate
+16646,intrinsic,IN09A044,gaba
+17341,intrinsic,IN09A039,gaba
+18137,intrinsic,IN13A010,gaba
+18233,intrinsic,INXXX007,gaba
+18426,intrinsic,IN00A026,gaba
+19027,intrinsic,IN10B033,acetylcholine
+19297,intrinsic,IN09A038,gaba
+19323,intrinsic,IN09A039,gaba
+19400,intrinsic,IN09A022,gaba
+20767,intrinsic,IN08A034,glutamate
+21128,intrinsic,IN09A052,gaba
+21674,intrinsic,IN19A053,gaba
+22064,intrinsic,IN14A026,glutamate
+23530,intrinsic,IN09A075,gaba
+23982,intrinsic,IN08A030,glutamate
+24094,intrinsic,IN08A030,glutamate
+24371,intrinsic,IN10B050,acetylcholine
+24435,intrinsic,IN19A107,gaba
+24451,intrinsic,IN09A052,gaba
+24678,intrinsic,IN09A052,gaba
+24994,intrinsic,IN10B058,acetylcholine
+25052,intrinsic,IN08A030,glutamate
+25597,intrinsic,IN10B043,acetylcholine
+26352,intrinsic,IN08A036,glutamate
+26537,intrinsic,IN10B055,acetylcholine
+27136,intrinsic,IN10B044,acetylcholine
+27304,intrinsic,IN19A081,gaba
+27306,intrinsic,IN13A060,gaba
+27677,intrinsic,IN10B044,acetylcholine
+28251,intrinsic,IN19A063,gaba
+28346,intrinsic,IN10B058,acetylcholine
+28863,intrinsic,IN00A011,gaba
+29047,intrinsic,IN01B089,gaba
+29327,intrinsic,IN10B042,acetylcholine
+32058,intrinsic,IN19A076,gaba
+33827,intrinsic,IN19A081,gaba
+11657,motor_extensor,Ti extensor MN,glutamate
+11706,motor_extensor,Ti extensor MN,glutamate
+12704,motor_extensor,Ti extensor MN,glutamate
+13115,motor_extensor,Ti extensor MN,glutamate
+14536,motor_extensor,Tr extensor MN,glutamate
+173560,motor_extensor,Tr extensor MN,glutamate
+27028,motor_extensor,Tr extensor MN,glutamate
+12761,motor_flexor,Acc. ti flexor MN,glutamate
+13163,motor_flexor,Ti flexor MN,glutamate
+13399,motor_flexor,Ti flexor MN,glutamate
+13819,motor_flexor,Acc. ti flexor MN,glutamate
+14783,motor_flexor,Acc. tr flexor MN,glutamate
+18440,motor_flexor,Tr flexor MN,glutamate
+19886,motor_flexor,Tr flexor MN,glutamate
+22729,motor_flexor,Acc. tr flexor MN,glutamate
+100028,sensory,SNpp59,glutamate
+100046,sensory,SNpp41,acetylcholine
+100324,sensory,SNpp39,glutamate
+100405,sensory,SNpp40,acetylcholine
+100412,sensory,SNpp39,glutamate
+100531,sensory,SNpp50,acetylcholine
+100564,sensory,SNppxx,glutamate
+100572,sensory,SNppxx,glutamate
+100808,sensory,SNpp43,acetylcholine
+101007,sensory,SNppxx,glutamate
+101246,sensory,SNpp50,glutamate
+101516,sensory,SNpp45,glutamate
+101691,sensory,SNpp53,glutamate
+101925,sensory,SNppxx,glutamate
+101927,sensory,SNppxx,glutamate
+101965,sensory,SNpp60,acetylcholine
+101970,sensory,SNpp43,glutamate
+103671,sensory,SNpp58,acetylcholine
+103678,sensory,SNpp57,acetylcholine
+103746,sensory,SNpp60,glutamate
+103750,sensory,SNpp51,glutamate
+103757,sensory,SNpp51,glutamate
+103760,sensory,SNpp60,acetylcholine
+103884,sensory,SNpp52,glutamate

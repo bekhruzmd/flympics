@@ -1,0 +1,5 @@
+MANC v1.2.1 compact front-leg circuit
+Selection: first 24 sorted front_leg proprioceptive sensory neurons; top 96 VNC intrinsic targets by direct synapse count; top 8 extensor and top 8 flexor front-leg motor neurons by selected-intrinsic input.
+manc_121_meta.feather md5 631f0fecb9c6fbdfa9a8171124f73e34
+manc_121_simple_edgelist.feather md5 ee4a344df499899d4418f1763bc39a30
+neurons 135; edges 2770

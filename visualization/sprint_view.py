@@ -70,7 +70,7 @@ def create_activity_view(records: Sequence[dict], controller_name: str):
     history.spines[["right", "top"]].set_visible(False)
     speed_line, = history.plot([], [], color="#35765a", linewidth=2)
 
-    neural = controller_name in {"fly", "trained"}
+    neural = controller_name in {"fly", "trained", "accelerate"}
     keys = ("sensory_mean", "intrinsic_mean", "motor_extensor", "motor_flexor")
     labels = ("Sensory input", "VNC interneurons", "Extensor output", "Flexor output")
     colors = ("#4089aa", "#8b71b3", "#3d946d", "#d19543")

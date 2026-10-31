@@ -15,6 +15,8 @@ from events.sprint import Sprint
 def make_controller(name: str):
     if name == "trained":
         return FlyBrainController.trained()
+    if name == "accelerate":
+        return FlyBrainController.always_accelerate()
     return {"random": RandomController, "rule": RuleController, "fly": FlyBrainController}[name]()
 
 
@@ -49,7 +51,7 @@ def run(controller_name: str = "fly", seed: int = 7, *, controller: Controller |
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Flympics 100 m Sprint MVP.")
-    parser.add_argument("--controller", choices=("random", "rule", "fly", "trained"), default="fly")
+    parser.add_argument("--controller", choices=("random", "rule", "fly", "trained", "accelerate"), default="fly")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output-dir", type=Path, default=Path("results"))
     parser.add_argument("--no-plot", action="store_true")

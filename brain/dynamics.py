@@ -15,6 +15,7 @@ class RateNetwork:
     def __init__(self, circuit: ConnectomeCircuit, leak: float = 0.35, gain: float = 3.0):
         self.circuit, self.leak, self.gain = circuit, leak, gain
         self.state = np.zeros(circuit.size, dtype=float)
+        self.silenced = np.asarray(circuit.ablated, dtype=int)
 
     def reset(self) -> None:
         self.state.fill(0.0)
@@ -26,4 +27,6 @@ class RateNetwork:
             drive = self.gain * (self.circuit.weights @ self.state) + stimulus
             target = np.tanh(drive)
             self.state += self.leak * (target - self.state)
+            # Ablated neurons stay silent even when the encoder stimulates them.
+            self.state[self.silenced] = 0.0
         return self.state.copy()

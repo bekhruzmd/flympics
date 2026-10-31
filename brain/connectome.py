@@ -17,6 +17,7 @@ class ConnectomeCircuit:
     roles: tuple[str, ...]
     cell_types: tuple[str, ...]
     weights: sparse.csr_matrix  # [post, pre], normalized synapse-count coupling
+    ablated: tuple[int, ...] = ()  # experiment-only lesions; see brain/ablation.py
 
     @property
     def size(self) -> int:

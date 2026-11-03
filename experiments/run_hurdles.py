@@ -5,11 +5,12 @@ import csv
 import json
 from pathlib import Path
 
+from brain.controller import FlyBrainController
 from controllers.base import Controller
 from controllers.hurdle_baselines import (AlwaysController, HurdleRuleController, RandomJumpController)
 from events.hurdles import JUMP, RUN, Hurdles
 
-CONTROLLERS = ("always_run", "always_jump", "random", "rule1", "rule")
+CONTROLLERS = ("always_run", "always_jump", "random", "rule1", "rule", "fly")
 LAYOUTS = ("benchmark", "seeded")
 
 
@@ -20,6 +21,7 @@ def make_controller(name: str) -> Controller:
         "random": RandomJumpController,
         "rule1": lambda: HurdleRuleController(look_ahead=1),
         "rule": HurdleRuleController,
+        "fly": FlyBrainController.hurdles,
     }[name]()
 
 
@@ -49,6 +51,8 @@ def run(controller_name: str = "rule", seed: int = 7, layout: str = "benchmark",
             "jumps": event.jumps,
             "action": action,
         })
+        if isinstance(controller, FlyBrainController):
+            records[-1].update(controller.last_summary)
     return records
 
 

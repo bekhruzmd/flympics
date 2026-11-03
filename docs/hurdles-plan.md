@@ -125,17 +125,21 @@ now `steps × dt`, so a race that runs out of time stops at exactly 90 s.
 | `BENCHMARK_LAYOUT` | Same rules, with pairs the one-look-ahead rule fails on |
 | Tests | Mean score on the benchmark and on seeds 0–49 ranks as `rule(2) < rule(1) < Always-RUN < random < Always-JUMP`. Random jumping is worse than never jumping: at p = 0.01 it averages 66 s against Always-RUN's 60 s, and at p = 0.1 it never finishes. On the benchmark, `rule(2)` hits no hurdles and `rule(1)` hits at least one |
 
-### 3. Fly brain encoder, decoder and starting weights
+### 3. Fly brain encoder, decoder and starting weights ✅ done
 
 Kept simple on purpose, so it can serve as the starting point for later training.
 It has the same form as Sprint's, and nothing is tuned for performance.
+
+Result: the untrained fly (`run_hurdles --controller fly`) finishes the benchmark in
+60.40 s with 13 hits and 1 jump. That is slightly slower than Always-RUN, because the
+network saturates into RUN after the start (see the notes for later training).
 
 | Part | Plan |
 |------|------|
 | `brain/hurdles_io.py`: `HurdlesEncoder` | The same form as `LearnedSensoryEncoder`. Features `[d1/40, d2/40, v/8]`, each clipped to [0, 1], where `d1` and `d2` are the distances to the next and second hurdle. Stimulus per sensory neuron: `0.45 + E @ features`. `E` has shape (24, 3). The input names are `next_hurdle`, `second_hurdle` and `velocity` |
 | `brain/hurdles_io.py`: `HurdlesDecoder` | The same comparison as `MotorDecoder`: extensor − flexor > threshold → JUMP, otherwise RUN. The threshold is a parameter with Sprint's default of 0.015 |
 | `models/hurdles_encoder_init.csv` | The same `pre,post,weight` format as Sprint's, one row per input → sensory edge (72 rows). Every neuron gets (0.90, 0.45, 0.25), following Sprint's (0.90, 0.25). Never overwritten |
-| Loading and saving | The existing CSV loading and saving functions are generalised to take a list of input names, with Sprint's list as the default. Alternatively, Hurdles gets its own copies of them |
+| Loading and saving | `load_encoder_weights` and `save_encoder_weights` take an optional list of input names. Sprint's list is the default |
 | `brain/controller.py` | `FlyBrainController` also accepts an `encoder` and a `decoder` from outside. `FlyBrainController.hurdles(path=...)` builds the Hurdles setup. If nothing is passed in, it builds exactly what it builds today |
 | `run_hurdles.py` | Adds a `--controller fly` option |
 | Tests | The starting CSV loads with shape (24, 3). Encoder output matches the formula above. An untrained fly runs a full benchmark race and a seeded race without errors and returns legal actions. All Sprint tests pass unchanged, including the bit-identical encoder check |

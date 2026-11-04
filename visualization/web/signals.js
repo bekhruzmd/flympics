@@ -36,10 +36,8 @@ function drawSignals(signals, row, available, time) {
 }
 function drawSignalFrame(time) {
   signalTime = time;
-  drawSignals(brainSignals, brainRow, brainAvailable, time);
-  // Avoid drawing the detailed graph while it is collapsed.
-  if (document.querySelector('.neuron-inspector').open) {
-    drawSignals(neuralSignals, latestNeuralRow, neuralAvailable, time);
-  }
+  // Skip graphs whose tab panel is hidden.
+  if (!document.getElementById('panel-anatomy')?.hidden) drawSignals(brainSignals, brainRow, brainAvailable, time);
+  if (!document.getElementById('panel-graph')?.hidden) drawSignals(neuralSignals, latestNeuralRow, neuralAvailable, time);
 }
 signalMotion.addEventListener('change', () => drawSignalFrame(signalTime));

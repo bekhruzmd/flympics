@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Sequence
 import csv
 import math
 import os
@@ -77,16 +78,17 @@ def initial_encoder_weights(circuit: ConnectomeCircuit) -> np.ndarray:
     return np.tile([0.90, 0.25], (len(circuit.indices("sensory")), 1))
 
 
-def load_encoder_weights(path: Path, circuit: ConnectomeCircuit) -> np.ndarray:
-    """Read an input->sensory edge CSV into E with shape (n_sensory, 2).
+def load_encoder_weights(path: Path, circuit: ConnectomeCircuit,
+                         inputs: Sequence[str] = ENCODER_INPUTS) -> np.ndarray:
+    """Read an input->sensory edge CSV into E with shape (n_sensory, len(inputs)).
 
     Rows are matched by MANC id, so file order does not matter; every sensory
-    neuron must have exactly one distance and one velocity weight.
+    neuron must have exactly one weight per input (Sprint: distance and velocity).
     """
     sensory = circuit.indices("sensory")
     row_of = {circuit.neuron_ids[i]: r for r, i in enumerate(sensory)}
-    col_of = {name: c for c, name in enumerate(ENCODER_INPUTS)}
-    weights = np.zeros((len(sensory), len(ENCODER_INPUTS)))
+    col_of = {name: c for c, name in enumerate(inputs)}
+    weights = np.zeros((len(sensory), len(inputs)))
     seen: set[tuple[int, int]] = set()
     with Path(path).open(newline="") as handle:
         reader = csv.DictReader(handle)
@@ -94,7 +96,7 @@ def load_encoder_weights(path: Path, circuit: ConnectomeCircuit) -> np.ndarray:
             raise ValueError(f"{path}: expected columns {ENCODER_FIELDS}, got {reader.fieldnames}")
         for line, edge in enumerate(reader, start=2):
             if edge["pre"] not in col_of:
-                raise ValueError(f"{path}:{line}: unknown input {edge['pre']!r}; choose from {ENCODER_INPUTS}")
+                raise ValueError(f"{path}:{line}: unknown input {edge['pre']!r}; choose from {tuple(inputs)}")
             if edge["post"] not in row_of:
                 raise ValueError(f"{path}:{line}: {edge['post']!r} is not a sensory neuron")
             weight = float(edge["weight"])
@@ -106,18 +108,19 @@ def load_encoder_weights(path: Path, circuit: ConnectomeCircuit) -> np.ndarray:
             seen.add(key)
             weights[key] = weight
     if len(seen) != weights.size:
-        missing = [f"{ENCODER_INPUTS[c]} -> {circuit.neuron_ids[sensory[r]]}"
-                   for r in range(len(sensory)) for c in range(len(ENCODER_INPUTS)) if (r, c) not in seen]
+        missing = [f"{inputs[c]} -> {circuit.neuron_ids[sensory[r]]}"
+                   for r in range(len(sensory)) for c in range(len(inputs)) if (r, c) not in seen]
         raise ValueError(f"{path}: missing {len(missing)} edge(s), e.g. {missing[:3]}")
     return weights
 
 
-def save_encoder_weights(path: Path, circuit: ConnectomeCircuit, weights: np.ndarray) -> None:
+def save_encoder_weights(path: Path, circuit: ConnectomeCircuit, weights: np.ndarray,
+                         inputs: Sequence[str] = ENCODER_INPUTS) -> None:
     """Write E as one row per (input, sensory neuron) edge; repr() keeps floats exact."""
     sensory = circuit.indices("sensory")
     weights = np.asarray(weights, dtype=float)
-    if weights.shape != (len(sensory), len(ENCODER_INPUTS)):
-        raise ValueError(f"Expected encoder shape {(len(sensory), len(ENCODER_INPUTS))}, got {weights.shape}")
+    if weights.shape != (len(sensory), len(inputs)):
+        raise ValueError(f"Expected encoder shape {(len(sensory), len(inputs))}, got {weights.shape}")
     if not np.isfinite(weights).all():
         raise ValueError("Encoder weights must be finite.")
     path = Path(path)
@@ -127,6 +130,6 @@ def save_encoder_weights(path: Path, circuit: ConnectomeCircuit, weights: np.nda
         writer = csv.writer(handle, lineterminator="\n")
         writer.writerow(ENCODER_FIELDS)
         for r, i in enumerate(sensory):
-            for c, name in enumerate(ENCODER_INPUTS):
+            for c, name in enumerate(inputs):
                 writer.writerow([name, circuit.neuron_ids[i], repr(float(weights[r, c]))])
     os.replace(temporary, path)

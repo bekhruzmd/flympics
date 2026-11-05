@@ -33,3 +33,15 @@ def test_activity_recording_preserves_simulation():
     recorded = run('trained', record_activity=True)
     assert [{key: value for key, value in row.items()
              if key not in ('neuron_activity', 'motor_threshold')} for row in recorded] == run('trained')
+
+
+def test_viewer_event_runs_match_their_runners():
+    from experiments import run_hurdles, run_swimming
+    from experiments.serve_view import HURDLES_CONTROLLERS, SWIMMING_CONTROLLERS
+    events = viewer_payload(7)['events']
+    assert events['hurdles']['hurdles'] == list(run_hurdles.course('benchmark', 7))
+    for name in HURDLES_CONTROLLERS:
+        assert events['hurdles']['runs'][name] == run_hurdles.run(name, 7, 'benchmark')
+    for name in SWIMMING_CONTROLLERS:
+        assert events['swimming']['runs'][name] == run_swimming.run(name, 7)
+    assert events['swimming']['pool_length'] == 50.0

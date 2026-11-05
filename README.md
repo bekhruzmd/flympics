@@ -55,27 +55,23 @@ If PowerShell blocks the activation script, run `Set-ExecutionPolicy -Scope Curr
 
 ## Run
 
-To open the local website with the animated fly and circuit activity card:
+To open the local website with the 3D fly:
 
 ```bash
 python -m experiments.serve_view
 ```
 
-Visit **http://localhost:8000**. Select a controller, play/pause, change playback
-speed, or scrub the timeline. The page shows actual Python simulation output;
-the browser does not simulate neural dynamics. The interactive brain widget uses an
-illustrative fiber map with selectable regions. Brain regions are context only;
-the four nerve-cord populations light up using recorded mean activity, synchronized
-with playback and scrubbing. Traveling dots follow a readable subset of real
-connections in the nerve-cord map and the selected neuron’s edges in the inspector.
-Their brightness uses enhanced activity contrast; travel timing illustrates direction,
-not measured spikes. Pausing freezes signals, scrubbing repositions them, and reduced
-motion uses stationary markers. Baselines show no neural activity. The expandable
-circuit inspector shows all 135 neurons using per-step recorded activity; select
-a neuron to inspect its annotated role and connections. Its layout is schematic,
-not anatomical. The task goal applies to the controller; individual neuron goals,
-reward learning, and dopamine are not modeled. Runs are computed when the
-server starts (seed 7 by default; change with `--seed`). Stop with Ctrl+C.
+Visit **http://localhost:8000**. Pick an event (Sprint, Hurdles or Swimming), then
+pull a vial to load a controller's run. Press Play (or 4x replay) and drag the tape
+ruler to scrub. Each vial fills with the distance its run has covered, so after
+watching all four the rack compares them side by side. The page replays actual
+Python simulation output; the browser does not simulate anything. The fly's body is
+the NeuroMechFly micro-CT scan (FlyGym, Apache-2.0); its six-leg gait and wingbeat
+are hand-made animation, not output of the circuit. Distances are read as
+1 sim metre = 1 body length (about 2.5 mm; see `docs/fly-speed-data.md`). Fly mode
+only changes the picture: flight is not part of the race physics. Real fruit flies
+cannot swim, so Swimming is a game model. Runs are computed when the server starts
+(seed 7 by default; change with `--seed`). Stop with Ctrl+C.
 The server binds only to your own computer and requires no additional packages.
 
 ```bash

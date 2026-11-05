@@ -74,6 +74,13 @@ cannot swim, so Swimming is a game model. Runs are computed when the server star
 (seed 7 by default; change with `--seed`). Stop with Ctrl+C.
 The server binds only to your own computer and requires no additional packages.
 
+To host the page without Python (for example on Vercel), write the recorded runs to a
+static file and serve `visualization/web/` as a plain static site:
+
+```bash
+python -m experiments.export_view
+```
+
 ```bash
 python -m experiments.run_sprint --controller random
 python -m experiments.run_sprint --controller rule

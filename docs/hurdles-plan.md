@@ -1,12 +1,37 @@
-# 200 m Hurdles: implementation plan
+# 200 m Hurdles v2: implementation plan
 
-The second Flympics event. The fly runs 200 m over 10–14 hurdles and chooses
-between two actions, RUN and JUMP. Jumping too early, too late or too often costs time.
+The fly runs 200 m over 7–13 randomly spaced hurdles and chooses between three
+actions: **ACCELERATE**, **COAST** and **JUMP**. Taking off too fast wastes speed,
+and taking off too late hits the hurdle. The best race speeds up between hurdles,
+coasts down to a safe speed before each one, and jumps on time.
 
 The event follows the `OlympicEvent` interface in [events/base.py](../events/base.py)
-and copies the conventions of [events/sprint.py](../events/sprint.py): 1-D track,
-fixed `dt`, deterministic for a given seed, lower score is better. Like Sprint, it
-is a game model, not fly biomechanics.
+and the conventions of [events/sprint.py](../events/sprint.py): 1-D track, fixed `dt`,
+deterministic for a given seed, lower score is better. It is a game model, not fly
+biomechanics. How to run it is in [hurdles.md](hurdles.md).
+
+## Status
+
+v2 replaces v1 (RUN/JUMP, close pairs) in the same files. v1 survives only in Git
+history, in commits `1205fcb` and `0034ee3` on the `hurdles` branch.
+
+All three steps are built: the event, baselines, runner, viewer and the fly brain's
+three-band decoder.
+
+## Why v2
+
+v1 had two problems, both found by simulation:
+
+- **Seeing the second hurdle didn't matter** except for close pairs. When pairs were
+  removed, the one-look-ahead and two-look-ahead rules behaved identically.
+- **Late jumps were rewarded, not punished.** Any take-off inside the window clears
+  the hurdle, and later take-offs keep running under power for longer. On 100
+  courses, taking off as late as possible was the fastest strategy.
+
+The root cause is that a jump scales with speed: its length, its take-off window
+and its height all stretch in proportion. So going faster never makes a jump harder,
+and no rule built only on jump timing makes speed a decision. v2 adds one rule that
+penalises speed itself, plus a COAST action to manage it.
 
 ## Scope
 
@@ -14,70 +39,58 @@ is a game model, not fly biomechanics.
 
 - The event itself.
 - The baselines that show the event isn't trivially solved.
+- The runner, plot and animation.
 - A simple, trainable encoder, decoder and set of starting encoder weights for the
-  fly brain, built the same way as Sprint's.
+  fly brain.
 
 **Out of scope:**
 
-- **Training.** Making the fly good at hurdles is a separate project.
-- **The connectome and the network dynamics.** `RateNetwork`'s gain, leak and
-  substeps stay unchanged.
-- **Sprint.** Sprint's behaviour and its tests stay unchanged.
-
-The untrained fly is not expected to score well. It only has to run a full race
-without errors.
-
-## Why this event
-
-In Sprint v1 the best action is always ACCELERATE (see
-[training-plan.md](training-plan.md)). Hurdles is built so that every simple
-policy loses:
-
-- **Always RUN** hits every hurdle.
-- **Always JUMP** never gets going.
-- **One look-ahead** can't time a jump over a close pair.
-
-A good score needs the controller to combine distance and velocity at the right
-moment.
+- **Training.**
+- **The connectome and network dynamics.**
+- **Sprint.** Its behaviour and tests stay unchanged.
 
 ## Rules
 
-| Rule | Value | Reason |
-|------|-------|--------|
-| Track length | 200 m | Room for both long gaps and tight pairs |
-| Hurdles | 10–14, first one at 15 m or later | |
-| `dt` | 0.05 s | At 0.1 s a pair's take-off window can be shorter than one step |
-| `max_time` | 90 s | A clean 200 m takes about 32 s; Always-RUN takes about 60 s |
-| RUN | Same physics as Sprint ACCELERATE: `acceleration` 1.25, `drag` 0.16, top speed 7.81 m/s | Results can be compared with Sprint |
-| JUMP | Only works on the ground. Starts a jump of `air_time` = 0.8 s, counted as 16 whole steps | Whole steps make every landing exact |
-| In the air | No push forward, drag still applies, and every action is ignored | The controller can't see whether it is airborne, so spamming JUMP is legal, just slow |
-| Take-off cost | Speed × 0.90 at each take-off | Makes jumping too often expensive |
-| Jump height | `y(t) = 4·H·t·(T − t) / T²`, with `H` = 1 | |
-| Hurdle height | `h` = 0.5·H | The fly is above `h` for the middle 71% of each jump |
-| Clearing a hurdle | Cleared only if the fly is in the air **and** `y ≥ h` when it passes the hurdle. The exact crossing time is interpolated within the step | Gives a window with two edges: too early means already coming down, too late means still going up |
-| Hitting a hurdle | Speed × 0.30. No disqualification | Real rules allow knocking hurdles. The time is lost through physics, not an added penalty |
-| Score | Finish time if the fly finishes; otherwise `max_time + remaining distance` (same as Sprint) | |
+| Rule | Value | Change from v1 |
+|------|-------|----------------|
+| Track length | 200 m | |
+| `dt`, `max_time` | 0.05 s, 90 s | |
+| ACCELERATE | Same as Sprint: `acceleration` 1.25, `drag` 0.16, top speed 7.81 m/s | Was called RUN |
+| COAST | No push; drag only. Slows the fly by 0.8% per step | **New** |
+| JUMP | Only works on the ground. Starts a jump of `air_time` = 0.8 s (16 steps) | |
+| In the air | No push, drag only, so exactly the same slowdown as COAST. Every action is ignored | |
+| **Take-off cost** | Speed kept = 0.90 up to `safe_speed` = 4.5 m/s; above it, `0.90 − 0.40 × (v − 4.5)`, never below 0.20 | **New**: was a flat 0.90 |
+| Jump height, hurdle height | `y(t) = 4·H·t·(T − t)/T²`, `H` = 1; hurdle at 0.5·H | |
+| Clearing a hurdle | Cleared if in the air and `y ≥ h` when passing it. Window: take off 0.146·L to 0.854·L before the hurdle, where `L` is jump length | |
+| Hitting a hurdle | Speed × 0.30, no disqualification | |
+| Score | Finish time, or `max_time + metres left` | |
 
-### Layout rules
+What the take-off cost means in practice:
 
-- **Pair:** two hurdles 1.0–1.5 m apart. One jump can clear both, but only with
-  good timing.
-- **Spacing:** a pair never touches a third hurdle. Every other gap is at least 6 m.
-  The generator draws "close" gaps of 6–9 m and "far" gaps of 20–35 m.
-- **Run-up and run-out:** at least 15 m before the first hurdle and at least 12 m
-  after the last.
-- These rules guarantee that **two look-ahead observations are enough**. No take-off
-  decision depends on a third hurdle.
+| Speed at take-off | 4.5 m/s | 5.0 | 5.5 | 6.0 | 6.5 | 7.0+ |
+|---|---|---|---|---|---|---|
+| Speed kept | 90% | 70% | 50% | 30% | 20% | 20% |
+| Speed after take-off | 4.05 | 3.50 | 2.75 | 1.80 | 1.30 | ≤ 1.56 |
 
-There are two kinds of layout:
+Arriving faster than 4.5 m/s always leaves the fly slower after the jump. Braking
+by coasting is slow: going from 6 m/s to 4.5 m/s takes about 1.8 s and 9.4 m. So a
+fly coming off a long gap has to start coasting well before the hurdle.
 
-- `BENCHMARK_LAYOUT`: one fixed course used for every scoreboard comparison.
-- `generate_layout(seed)`: a seeded random course for training and for checking
-  that a controller works on new courses. Each gap is a pair with probability 0.3
-  (never two pairs in a row); otherwise it is close or far with equal chance. The
-  generator redraws until the course has 10–14 hurdles.
+### Layout
+
+- **Gaps:** each gap is drawn uniformly from **8–30 m**, which gives 7–13 hurdles
+  per course.
+- **No pairs.** Every gap is wider than any one jump can clear (at most about 3.7 m
+  at top speed), so each hurdle takes its own jump.
+- **Run-up and run-out:** the first hurdle at 15 m or later, the last at least 12 m
+  before the finish.
+- `validate_layout` enforces these rules for any course, so every gap must be at least 8 m.
+- **Two kinds of course:** `BENCHMARK_LAYOUT`, a fixed course with a mix of short
+  and long gaps chosen in step 1, and `generate_layout(seed)`.
 
 ### Observation
+
+Unchanged from v1:
 
 ```python
 {
@@ -87,100 +100,158 @@ There are two kinds of layout:
 }
 ```
 
-When fewer hurdles are left than the observation needs, the missing distance is set
-to the 40 m cap, meaning "nothing nearby". There is no airborne flag and no distance
-to the finish.
+No baseline uses the second hurdle. It is kept so the encoder shape (24 × 3) doesn't
+change, and so later training can test whether it helps. See the open questions.
+
+## Prototype results
+
+A throwaway simulation of these rules over seeds 0–49:
+
+| Strategy | Mean score | Hits per race |
+|----------|-----------:|--------------:|
+| Coast to 4.5 m/s, jump mid-window (`rule`) | **47.70 s** | 0 |
+| Same, but coasts only over the last 3 m | 48.83 s | 0 |
+| Jump mid-window, never coast (`nocoast`) | 51.78 s | 0 |
+| Always accelerate (never jump) | 56.82 s | 9.82 |
+| Random: 1% jump, otherwise accelerate | 64.14 s | 9.16 |
+| Random: 1% jump, 30% coast, otherwise accelerate | 81.49 s | 9.14 |
+| Always coast / always jump | 290 (did not finish) | 0 |
+
+Arrival speed for the coasting rule:
+
+| Target speed at take-off | 4.0 | **4.5** | 4.8 | 5.1 | 5.5 |
+|---|---|---|---|---|---|
+| Mean score | 50.65 s | **47.70 s** | 48.66 s | 49.72 s | 51.08 s |
+
+How steep the penalty must be, as the coasting rule's gain over `nocoast`:
+
+| `safe_speed` \ `overspeed_cost` | 0.2 | 0.3 | 0.45 |
+|---|---|---|---|
+| 4.0 | −0.31 s | +2.83 s | +6.96 s |
+| 4.5 | +0.17 s | +2.17 s | +5.02 s |
+| 5.0 | +0.30 s | +1.44 s | +2.95 s |
+
+What this showed:
+
+- **With `overspeed_cost` 0.2, coasting is pointless.** The extra speed lost at
+  take-off is smaller than the time spent braking. At 0.4 coasting gains about 4 s.
+- **The best take-off speed is exactly `safe_speed`.** Missing it by 0.3 m/s in
+  either direction costs about 1 s, so speed control is a real skill.
+- **Late braking costs time:** coasting only over the last 3 m loses 1.1 s.
 
 ## Steps
 
 ### 1. Event ✅ done
 
-- [events/hurdles.py](../events/hurdles.py) contains:
-  - `Hurdles(OlympicEvent)`;
-  - `RUN`, `JUMP`, `LEGAL_ACTIONS`;
-  - `BENCHMARK_LAYOUT`, `generate_layout(seed)` and `validate_layout(hurdles, distance)`;
-  - counters `hits`, `jumps` and `clears`, and properties `airborne` and `height`, for logging.
-- [tests/test_hurdles.py](../tests/test_hurdles.py): 16 tests. They cover the
-  two-edged timing window, clearing a pair with one jump, the take-off cost and
-  stumble, ignored mid-air actions, the distance cap, 1000 generated layouts, the
-  rejected layouts, and Always-RUN and Always-JUMP.
-### 2. Baselines and runner ✅ done
+The event gives exactly the prototype's scores on 5 seeded courses. The benchmark
+course is `(15, 24, 52, 61, 70.5, 98, 107, 135, 144, 158, 186)`, alternating gaps of
+about 9 m and 28 m.
 
-| Controller | Benchmark score | Hits | Seeds 0–49: mean score | Mean hits |
-|------------|----------------:|-----:|-----------------------:|----------:|
-| `rule` (2 look-ahead) | 42.50 s | 0 | 42.42 s | 0.00 |
-| `rule1` (1 look-ahead) | 47.25 s | 2 | 45.12 s | 1.28 |
-| `always_run` | 59.60 s | 13 | 58.54 s | 12.36 |
-| `random` (p = 0.01) | 67.25 s | 13 | 65.20 s | 11.60 |
-| `always_jump` | 290 (did not finish) | 0 | 290 | 0.00 |
+`events/hurdles.py`, replacing v1:
 
-The benchmark course has one 1.2 m pair that both rules clear, and two wider pairs
-(1.5 m at 90 m, 1.4 m at 160 m) that only the two-look-ahead rule clears. Race time is
-now `steps × dt`, so a race that runs out of time stops at exactly 90 s.
+- **Actions:** `ACCELERATE`, `COAST`, `JUMP`; `LEGAL_ACTIONS`.
+- **New settings:** `safe_speed` = 4.5, `overspeed_cost` = 0.40, `min_takeoff_keep` = 0.20.
+  `takeoff_keep` = 0.90 stays as the cost at or below `safe_speed`.
+- **New method:** `takeoff_keep_at(v)` applies the table above. The rule controller
+  uses it too.
+- **Layout:** `MIN_GAP` = 8, `GAP` = (8, 30). The pair constants and the hurdle-count
+  redraw go.
+- **Kept from v1:** jump arc, interpolated crossing, stumble, observation, the
+  counters (`hits`, `jumps`, `clears`), `airborne`, `height`, and time as `steps × dt`.
+- **New counter:** `coasts` (steps spent coasting), for logging.
 
-| File | Content |
-|------|---------|
-| `controllers/hurdle_baselines.py` | `AlwaysController(action)`, `RandomJumpController(p=0.01, seed)` (about 12 jumps per race, roughly one per hurdle, at random times) and `HurdleRuleController(look_ahead=2)`. The rule predicts its speed in the air as `v · 0.90 · (1 − drag · T/2)` and its jump length as `L = v_air · T`. Its take-off window is `[0.146·L, 0.854·L]`, or `[0.146·L, 0.854·L − s]` for a pair `s` apart. It jumps once the next hurdle is at the middle of the window. With `look_ahead=1` it ignores pairs |
-| `experiments/run_hurdles.py` | Copy of `run_sprint.py`. Each step's record adds `distance_to_next_hurdle`, `distance_to_second_hurdle`, `height`, `airborne`, `hits` and `jumps`. Command-line options: `--controller`, `--layout benchmark\|seeded`, `--seed`. Writes CSV and JSON to `results/` |
-| `BENCHMARK_LAYOUT` | Same rules, with pairs the one-look-ahead rule fails on |
-| Tests | Mean score on the benchmark and on seeds 0–49 ranks as `rule(2) < rule(1) < Always-RUN < random < Always-JUMP`. Random jumping is worse than never jumping: at p = 0.01 it averages 66 s against Always-RUN's 60 s, and at p = 0.1 it never finishes. On the benchmark, `rule(2)` hits no hurdles and `rule(1)` hits at least one |
+Tests (`tests/test_hurdles.py`, rewritten):
 
-### 3. Fly brain encoder, decoder and starting weights ✅ done
+- same seed and actions give the same run;
+- illegal actions and stepping a finished race are rejected;
+- ACCELERATE matches Sprint's ACCELERATE exactly;
+- COAST and a step in the air slow the fly by exactly the same amount;
+- `takeoff_keep_at` gives 0.90 at or below 4.5 m/s, 0.50 at 5.5, and 0.20 at 7.5;
+- the timing window has two edges (early and late hits, middle clears);
+- actions in the air are ignored;
+- a hit applies the stumble;
+- the distance cap works;
+- 1000 generated layouts pass validation;
+- gaps under 8 m and short run-ups or run-outs are rejected.
 
-Kept simple on purpose, so it can serve as the starting point for later training.
-It has the same form as Sprint's, and nothing is tuned for performance.
+### 2. Baselines, runner and viewer ✅ done
 
-Result: the untrained fly (`run_hurdles --controller fly`) finishes the benchmark in
-60.40 s with 13 hits and 1 jump. That is slightly slower than Always-RUN, because the
-network saturates into RUN after the start (see the notes for later training).
+| Controller | Benchmark | Seeds 0–49: mean score | Mean hits |
+|------------|----------:|-----------------------:|----------:|
+| `rule` | 48.10 s | 47.70 s | 0.00 |
+| `nocoast` | 53.20 s | 51.78 s | 0.00 |
+| `always_accelerate` | 58.35 s | 56.82 s | 9.82 |
+| `random` | 65.85 s | 63.43 s | 9.04 |
+| `always_coast`, `always_jump` | 290 (did not finish) | 290 | 0 |
 
-| Part | Plan |
-|------|------|
-| `brain/hurdles_io.py`: `HurdlesEncoder` | The same form as `LearnedSensoryEncoder`. Features `[d1/40, d2/40, v/8]`, each clipped to [0, 1], where `d1` and `d2` are the distances to the next and second hurdle. Stimulus per sensory neuron: `0.45 + E @ features`. `E` has shape (24, 3). The input names are `next_hurdle`, `second_hurdle` and `velocity` |
-| `brain/hurdles_io.py`: `HurdlesDecoder` | The same comparison as `MotorDecoder`: extensor − flexor > threshold → JUMP, otherwise RUN. The threshold is a parameter with Sprint's default of 0.015 |
-| `models/hurdles_encoder_init.csv` | The same `pre,post,weight` format as Sprint's, one row per input → sensory edge (72 rows). Every neuron gets (0.90, 0.45, 0.25), following Sprint's (0.90, 0.25). Never overwritten |
-| Loading and saving | `load_encoder_weights` and `save_encoder_weights` take an optional list of input names. Sprint's list is the default |
-| `brain/controller.py` | `FlyBrainController` also accepts an `encoder` and a `decoder` from outside. `FlyBrainController.hurdles(path=...)` builds the Hurdles setup. If nothing is passed in, it builds exactly what it builds today |
-| `run_hurdles.py` | Adds a `--controller fly` option |
-| Tests | The starting CSV loads with shape (24, 3). Encoder output matches the formula above. An untrained fly runs a full benchmark race and a seeded race without errors and returns legal actions. All Sprint tests pass unchanged, including the bit-identical encoder check |
+`controllers/hurdle_baselines.py`:
 
-## Prototype results
+| Controller | Behaviour |
+|------------|-----------|
+| `HurdleRuleController(coast=True)` | Jumps at the middle of the window, computed from the speed kept after take-off. While above `safe_speed`, it coasts once the remaining distance to the take-off point is within its braking distance, `(v − safe_speed) / drag`. Otherwise it accelerates. `coast=False` gives `nocoast` |
+| `AlwaysController(action)` | Always accelerate, always coast or always jump |
+| `RandomController(p_jump=0.01, p_coast=0.0)` | Random actions |
 
-A throwaway simulation of these rules, averaged over 100 seeded layouts with about
-13.6 hurdles each, `dt` = 0.05:
+`experiments/run_hurdles.py`:
 
-| Policy | Mean score | Hurdles hit per race |
-|--------|-----------:|---------------:|
-| Always-RUN | 60.1 s | 13.6 |
-| Always-JUMP | 290 (did not finish) | 0 |
-| Rule, 1 look-ahead | 45.0 s | 1.08 |
-| Rule, 2 look-ahead | **43.0 s** | **0.00** |
-| Clean 200 m, no hurdles | 31.8 s | – |
+- **Controller names:** `rule`, `nocoast`, `always_accelerate`, `always_coast`,
+  `always_jump`, `random`, `fly`.
+- **Records** add `coasts` and the speed kept at the latest take-off.
+- **Options** stay the same.
 
-What this showed:
+`visualization/hurdles_view.py`:
 
-- **The first settings were too tight.** With a 0.6 s jump and a hurdle at 0.75
-  of jump height, a 1.5 m pair couldn't be cleared below about 6 m/s. The current
-  settings give a take-off window of 2–5 steps at normal race speeds.
-- **The rule has to use speed after take-off.** If it plans with the speed measured
-  before the jump, it overestimates the jump length and comes down on the second
-  hurdle of a pair.
-- **Always-JUMP never moves.** It takes off at speed 0 and gets no push in the air,
-  which is why step 2 adds a random-jump baseline.
+- **Plot:** coasting stretches shaded on the speed plot, beside the jumps, and a
+  dashed line at `safe_speed`.
+- **Animation:** the status shows ACCEL, COAST, JUMP or AIR.
 
-## Notes for later training (not addressed here)
+Tests:
 
-- With the current network settings and all-positive input, every neuron saturates
-  within about 8 steps and stays there. Signed encoder weights can switch the motor
-  output on in 3–4 steps and off in about 6.
-- The output's "off" level of about +0.02 is above the 0.015 default threshold, so
-  the threshold has to be fitted during training.
-- JUMP is the right action in only about 1 step in 50. Training will need to handle
-  that imbalance.
+- **Ranking** on the benchmark course and over seeds 0–49:
+  `rule < nocoast < always_accelerate < random < always_coast = always_jump`
+  (the last two both fail to finish).
+- `rule` takes off within 0.3 m/s of `safe_speed` on at least 90% of its jumps.
+- Runs are reproducible.
+- The viewer tests from v1, updated.
+
+### 3. Fly brain ✅ done
+
+Result: the untrained fly accelerates for 5 steps, then its output settles in the
+COAST band for the rest of the race. It stalls at 1.95 m on the benchmark, scoring
+288.05.
+
+- **Encoder:** unchanged. `HurdlesEncoder` keeps its 24 × 3 weights, the same
+  starting CSV and the same `(0.90, 0.45, 0.25)` weights.
+- **Decoder:** `HurdlesDecoder` reads Sprint's extensor − flexor difference against
+  **two thresholds**:
+
+  ```
+  difference ≤ coast_threshold (0.015)            → COAST
+  coast_threshold < difference ≤ jump_threshold   → ACCELERATE
+  difference > jump_threshold (0.30)              → JUMP
+  ```
+
+  0.015 is Sprint's default, and the band between it and 0.30 keeps Sprint's meaning
+  of "above the threshold means push". The order COAST < ACCELERATE < JUMP follows
+  increasing extensor drive. Both thresholds are parameters, to be fitted in
+  training.
+- **Controller:** `FlyBrainController.hurdles(coast_threshold, jump_threshold)`.
+
+Tests: the decoder's three bands, plus an untrained fly running a full race with
+legal actions. The untrained fly is expected to stall: its difference settles near 0
+after about 8 steps, which falls in the COAST band. The untrained Sprint fly does the
+same, coasting to a standstill.
+
+## Notes for later training
+
+- The network saturates within about 8 steps of all-positive input. Signed encoder
+  weights can switch the motor output on in 3–4 steps and off in about 6.
+- With three actions, both thresholds have to be fitted.
+- COAST and JUMP are each needed only in short, rare stretches, so the actions are
+  imbalanced, and JUMP is the rarest.
 
 ## Open questions
 
-- Should there be "choice gaps" of 3–4 m, where clearing both hurdles with one jump
-  and jumping twice are both viable?
-- Should a hit cost more at higher speed?
-- Should hurdle height vary in the seeded courses?
+- Should the second-hurdle observation be removed (encoder 24 × 2) if training shows it doesn't help?
+- Should COAST brake harder than drag alone (`coast_drag`), so braking takes less track?
+- Should hurdle heights or `safe_speed` vary between seeded courses?

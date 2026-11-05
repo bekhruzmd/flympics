@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from events.hurdles import JUMP, RUN
-from events.sprint import ACCELERATE
+from events.hurdles import ACCELERATE, COAST, JUMP
 from .connectome import ConnectomeCircuit
 from .motor import MotorDecoder
 
@@ -54,11 +53,29 @@ class HurdlesEncoder:
 
 
 class HurdlesDecoder(MotorDecoder):
-    """Sprint's extensor - flexor > threshold readout, read as JUMP instead of ACCELERATE."""
+    """Sprint's extensor - flexor readout, split into three bands by two thresholds.
+
+    Up to coast_threshold: COAST; up to jump_threshold: ACCELERATE; above it: JUMP. The
+    order follows increasing extensor drive, and the lower band keeps Sprint's meaning of
+    "above the threshold means push". Both thresholds are placeholders for training.
+    """
+    def __init__(self, circuit: ConnectomeCircuit, coast_threshold: float = 0.015,
+                 jump_threshold: float = 0.30):
+        if not coast_threshold < jump_threshold:
+            raise ValueError("coast_threshold must be below jump_threshold.")
+        super().__init__(circuit, threshold=coast_threshold)
+        self.jump_threshold = jump_threshold
+
+    @property
+    def coast_threshold(self) -> float:
+        return self.threshold
 
     def decode(self, activity: np.ndarray) -> tuple[str, dict[str, float]]:
-        action, motor = super().decode(activity)
-        return (JUMP if action == ACCELERATE else RUN), motor
+        _, motor = super().decode(activity)
+        difference = motor["difference"]
+        if difference > self.jump_threshold:
+            return JUMP, motor
+        return (ACCELERATE if difference > self.coast_threshold else COAST), motor
 
 
 def initial_hurdles_encoder_weights(circuit: ConnectomeCircuit) -> np.ndarray:

@@ -1,4 +1,4 @@
-"""A deterministic 200 m hurdles environment with RUN/JUMP actions."""
+"""A deterministic 200 m hurdles environment with ACCELERATE/COAST/JUMP actions."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,67 +7,46 @@ from typing import Mapping, Sequence
 
 from .base import OlympicEvent
 
-RUN = "RUN"
+# Same strings as Sprint's actions.
+ACCELERATE = "ACCELERATE"
+COAST = "COAST"
 JUMP = "JUMP"
-LEGAL_ACTIONS = frozenset((RUN, JUMP))
+LEGAL_ACTIONS = frozenset((ACCELERATE, COAST, JUMP))
 
-# Layout rules: pairs can be cleared with one jump, every other gap needs its own.
+# Layout rules: every gap is wider than one jump can clear, so each hurdle needs its own jump.
 MIN_RUN_UP = 15.0
 MIN_RUN_OUT = 12.0
-PAIR_GAP = (1.0, 1.5)
-MIN_SINGLE_GAP = 6.0
-CLOSE_GAP = (6.0, 9.0)
-FAR_GAP = (20.0, 35.0)
-PAIR_PROBABILITY = 0.3
-HURDLE_COUNT = (10, 14)
+MIN_GAP = 8.0
+GAP = (8.0, 30.0)
 
-# Fixed scoreboard course. The 1.2 m pair at 57 m can be cleared without seeing the second
-# hurdle; the wider pairs at 90 m and 160 m cannot.
-BENCHMARK_LAYOUT = (15.0, 22.0, 57.0, 58.2, 70.0, 90.0, 91.5, 120.0, 126.0, 132.0, 160.0, 161.4, 185.0)
-
-
-def _is_pair_gap(gap: float) -> bool:
-    return PAIR_GAP[0] <= gap <= PAIR_GAP[1]
+# Fixed scoreboard course: short gaps that leave no room to speed up, and long gaps that
+# end in a braking stretch.
+BENCHMARK_LAYOUT = (15.0, 24.0, 52.0, 61.0, 70.5, 98.0, 107.0, 135.0, 144.0, 158.0, 186.0)
 
 
 def validate_layout(hurdles: Sequence[float], distance: float) -> None:
-    """Raise ValueError unless every take-off decision depends on at most two hurdles."""
+    """Raise ValueError unless the run-up, run-out and every gap are long enough."""
     if not hurdles:
         raise ValueError("A hurdles layout needs at least one hurdle.")
     if hurdles[0] < MIN_RUN_UP:
         raise ValueError(f"First hurdle at {hurdles[0]} m; the run-up must be at least {MIN_RUN_UP} m.")
     if distance - hurdles[-1] < MIN_RUN_OUT:
         raise ValueError(f"Last hurdle at {hurdles[-1]} m; the run-out must be at least {MIN_RUN_OUT} m.")
-    previous_was_pair = False
     for i, (a, b) in enumerate(zip(hurdles, hurdles[1:]), start=1):
-        gap = b - a
-        if _is_pair_gap(gap):
-            if previous_was_pair:
-                raise ValueError(f"Hurdles {i - 1}-{i + 1} form a cluster of three; pairs must stand alone.")
-            previous_was_pair = True
-        elif gap >= MIN_SINGLE_GAP:
-            previous_was_pair = False
-        else:
-            raise ValueError(f"Gap of {gap:.2f} m after hurdle {i - 1}: use a pair gap {PAIR_GAP} "
-                             f"or at least {MIN_SINGLE_GAP} m.")
+        if b - a < MIN_GAP:
+            raise ValueError(f"Gap of {b - a:.2f} m after hurdle {i - 1}; every gap must be at least {MIN_GAP} m.")
 
 
 def generate_layout(seed: int, distance: float = 200.0) -> tuple[float, ...]:
-    """Seeded mix of pairs, close and far gaps; redraws until the hurdle count is in range."""
+    """Seeded course with every gap drawn uniformly from GAP."""
     rng = random.Random(seed)
-    while True:
-        hurdles, position, previous_was_pair = [], MIN_RUN_UP, False
-        while position <= distance - MIN_RUN_OUT:
-            hurdles.append(round(position, 3))
-            if not previous_was_pair and rng.random() < PAIR_PROBABILITY:
-                gap, previous_was_pair = rng.uniform(*PAIR_GAP), True
-            else:
-                gap, previous_was_pair = rng.uniform(*(CLOSE_GAP if rng.random() < 0.5 else FAR_GAP)), False
-            position += gap
-        if HURDLE_COUNT[0] <= len(hurdles) <= HURDLE_COUNT[1]:
-            layout = tuple(hurdles)
-            validate_layout(layout, distance)
-            return layout
+    hurdles, position = [], MIN_RUN_UP
+    while position <= distance - MIN_RUN_OUT:
+        hurdles.append(round(position, 3))
+        position += rng.uniform(*GAP)
+    layout = tuple(hurdles)
+    validate_layout(layout, distance)
+    return layout
 
 
 @dataclass
@@ -83,6 +62,9 @@ class Hurdles(OlympicEvent):
     jump_height: float = 1.0
     hurdle_height: float = 0.5
     takeoff_keep: float = 0.90
+    safe_speed: float = 4.5
+    overspeed_cost: float = 0.40
+    min_takeoff_keep: float = 0.20
     stumble_keep: float = 0.30
     sensor_range: float = 40.0
     layout: tuple[float, ...] | None = None
@@ -110,6 +92,8 @@ class Hurdles(OlympicEvent):
         self.hits = 0
         self.jumps = 0
         self.clears = 0
+        self.coasts = 0
+        self.last_takeoff_keep: float | None = None
         self._finished = False
         return self.observe()
 
@@ -138,17 +122,28 @@ class Hurdles(OlympicEvent):
         total = self._air_steps * self.dt
         return max(0.0, 4.0 * self.jump_height * t * (total - t) / total**2)
 
+    def takeoff_keep_at(self, velocity: float) -> float:
+        """Share of speed kept when jumping at this speed; over safe_speed costs extra."""
+        if velocity <= self.safe_speed:
+            return self.takeoff_keep
+        return max(self.min_takeoff_keep, self.takeoff_keep - self.overspeed_cost * (velocity - self.safe_speed))
+
     def step(self, action: str) -> Mapping[str, float]:
         if action not in LEGAL_ACTIONS:
             raise ValueError(f"Illegal hurdles action {action!r}; choose from {sorted(LEGAL_ACTIONS)}")
         if self._finished:
             raise RuntimeError("Cannot step a finished race; call reset().")
         # Actions in the air are ignored, so JUMP spam is legal but slow.
-        if action == JUMP and self._air is None:
+        on_ground = self._air is None
+        if action == JUMP and on_ground:
             self._air = 0
-            self.velocity *= self.takeoff_keep
+            self.last_takeoff_keep = self.takeoff_keep_at(self.velocity)
+            self.velocity *= self.last_takeoff_keep
             self.jumps += 1
-        force = self.acceleration if self._air is None else 0.0
+        elif action == COAST and on_ground:
+            self.coasts += 1
+        # Only ACCELERATE on the ground pushes; coasting and flying both lose speed to drag alone.
+        force = self.acceleration if action == ACCELERATE and on_ground else 0.0
         # Semi-implicit Euler, as in Sprint.
         self.velocity = max(0.0, self.velocity + self.dt * (force - self.drag * self.velocity))
         start = self.position

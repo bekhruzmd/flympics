@@ -50,15 +50,16 @@ class FlyBrainController(Controller):
         self.last_summary: dict[str, float] = {}
 
     @classmethod
-    def hurdles(cls, path: Path = HURDLES_ENCODER_INIT, motor_threshold: float = 0.015,
-                circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
-        """Untrained Hurdles fly: starting encoder weights and Sprint's default threshold."""
-        if not math.isfinite(motor_threshold) or not 0 <= motor_threshold <= 1:
-            raise ValueError("Motor threshold must be finite and between 0 and 1.")
+    def hurdles(cls, path: Path = HURDLES_ENCODER_INIT, coast_threshold: float = 0.015,
+                jump_threshold: float = 0.30, circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Untrained Hurdles fly: starting encoder weights, Sprint's threshold for COAST/ACCELERATE."""
+        for threshold in (coast_threshold, jump_threshold):
+            if not math.isfinite(threshold) or not 0 <= threshold <= 1:
+                raise ValueError("Motor thresholds must be finite and between 0 and 1.")
         circuit = circuit if circuit is not None else load_manc_front_leg_circuit()
         weights = load_encoder_weights(Path(path), circuit, HURDLES_INPUTS)
         return cls(circuit=circuit, encoder=HurdlesEncoder(circuit, weights),
-                   decoder=HurdlesDecoder(circuit, threshold=motor_threshold))
+                   decoder=HurdlesDecoder(circuit, coast_threshold, jump_threshold))
 
     @classmethod
     def trained(cls, path: Path = SPRINT_POLICY, circuit: ConnectomeCircuit | None = None) -> FlyBrainController:

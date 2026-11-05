@@ -6,7 +6,7 @@ from brain.hurdles_io import (HURDLES_INPUTS, HurdlesDecoder, HurdlesEncoder,
                               initial_hurdles_encoder_weights)
 from brain.motor import MotorDecoder
 from brain.sensory import load_encoder_weights, save_encoder_weights
-from events.hurdles import JUMP, RUN
+from events.hurdles import ACCELERATE, COAST, JUMP
 from experiments.run_hurdles import run
 
 
@@ -48,25 +48,53 @@ def test_encoder_formula_and_clipping(brain):
 
 def test_decoder_reads_the_sprint_comparison_as_jump(brain):
     hurdles, sprint = HurdlesDecoder(brain.circuit), MotorDecoder(brain.circuit)
+    assert (hurdles.coast_threshold, hurdles.jump_threshold) == (0.015, 0.30)
     for seed in range(20):
         activity = np.random.default_rng(seed).uniform(-1, 1, brain.circuit.size)
         action, motor = hurdles.decode(activity)
-        _, sprint_motor = sprint.decode(activity)
+        sprint_action, sprint_motor = sprint.decode(activity)
         assert motor == sprint_motor
-        assert action == (JUMP if motor["difference"] > hurdles.threshold else RUN)
+        # Below the jump band, the decoder makes Sprint's push / no-push choice.
+        if motor["difference"] <= hurdles.jump_threshold:
+            assert action == {"ACCELERATE": ACCELERATE, "COAST": COAST}[sprint_action]
 
 
-def test_untrained_fly_runs_full_races():
+def motor_activity(circuit, difference):
+    """Activity whose extensor - flexor means differ by exactly `difference`."""
+    activity = np.zeros(circuit.size)
+    activity[circuit.indices("motor_extensor")] = 0.5 + difference / 2
+    activity[circuit.indices("motor_flexor")] = 0.5 - difference / 2
+    return activity
+
+
+@pytest.mark.parametrize("difference, expected", [
+    (-0.2, COAST), (0.0, COAST), (0.01, COAST),
+    (0.02, ACCELERATE), (0.2, ACCELERATE), (0.29, ACCELERATE),
+    (0.31, JUMP), (0.9, JUMP),
+])
+def test_decoder_bands(brain, difference, expected):
+    action, motor = HurdlesDecoder(brain.circuit).decode(motor_activity(brain.circuit, difference))
+    assert motor["difference"] == pytest.approx(difference)
+    assert action == expected
+
+
+def test_untrained_fly_stalls_like_the_untrained_sprint_fly():
     for layout in ("benchmark", "seeded"):
         records = run("fly", seed=2, layout=layout)
         assert records == run("fly", seed=2, layout=layout)
-        assert all(row["action"] in {RUN, JUMP} for row in records)
-        assert records[-1]["position"] == 200.0 or records[-1]["simulation_time"] == pytest.approx(90.0)
+        assert all(row["action"] in {ACCELERATE, COAST, JUMP} for row in records)
         assert "motor_difference" in records[-1]
+        # The network saturates within a few steps; the difference settles in the COAST band.
+        assert all(row["action"] == COAST for row in records[10:])
+        assert records[-1]["simulation_time"] == pytest.approx(90.0) and records[-1]["position"] < 15.0
 
 
 def test_controller_arguments(brain):
     with pytest.raises(ValueError):
         FlyBrainController(encoder_weights=np.zeros((24, 2)), encoder=brain.encoder)
     with pytest.raises(ValueError):
-        FlyBrainController.hurdles(motor_threshold=2.0)
+        FlyBrainController.hurdles(jump_threshold=2.0)
+    with pytest.raises(ValueError):
+        FlyBrainController.hurdles(coast_threshold=0.5, jump_threshold=0.3)
+    custom = FlyBrainController.hurdles(coast_threshold=0.0, jump_threshold=0.5)
+    assert (custom.decoder.coast_threshold, custom.decoder.jump_threshold) == (0.0, 0.5)

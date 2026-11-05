@@ -7,22 +7,30 @@ from pathlib import Path
 
 from brain.controller import FlyBrainController
 from controllers.base import Controller
-from controllers.hurdle_baselines import (AlwaysController, HurdleRuleController, RandomJumpController)
-from events.hurdles import JUMP, RUN, Hurdles
+from controllers.hurdle_baselines import AlwaysController, HurdleRuleController, RandomController
+from events.hurdles import ACCELERATE, BENCHMARK_LAYOUT, COAST, JUMP, Hurdles, generate_layout
 
-CONTROLLERS = ("always_run", "always_jump", "random", "rule1", "rule", "fly")
+CONTROLLERS = ("rule", "nocoast", "always_accelerate", "always_coast", "always_jump", "random", "fly")
 LAYOUTS = ("benchmark", "seeded")
 
 
 def make_controller(name: str) -> Controller:
     return {
-        "always_run": lambda: AlwaysController(RUN),
-        "always_jump": lambda: AlwaysController(JUMP),
-        "random": RandomJumpController,
-        "rule1": lambda: HurdleRuleController(look_ahead=1),
         "rule": HurdleRuleController,
+        "nocoast": lambda: HurdleRuleController(coast=False),
+        "always_accelerate": lambda: AlwaysController(ACCELERATE),
+        "always_coast": lambda: AlwaysController(COAST),
+        "always_jump": lambda: AlwaysController(JUMP),
+        "random": RandomController,
         "fly": FlyBrainController.hurdles,
     }[name]()
+
+
+def course(layout: str = "benchmark", seed: int = 7) -> tuple[float, ...]:
+    """Hurdle positions that run() races on, for plots and viewers."""
+    if layout not in LAYOUTS:
+        raise ValueError(f"Unknown layout {layout!r}; choose from {LAYOUTS}")
+    return generate_layout(seed) if layout == "seeded" else BENCHMARK_LAYOUT
 
 
 def run(controller_name: str = "rule", seed: int = 7, layout: str = "benchmark", *,
@@ -49,6 +57,8 @@ def run(controller_name: str = "rule", seed: int = 7, layout: str = "benchmark",
             "airborne": event.airborne,
             "hits": event.hits,
             "jumps": event.jumps,
+            "coasts": event.coasts,
+            "takeoff_keep": event.last_takeoff_keep,
             "action": action,
         })
         if isinstance(controller, FlyBrainController):
@@ -71,17 +81,29 @@ def main() -> None:
     parser.add_argument("--layout", choices=LAYOUTS, default="benchmark")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output-dir", type=Path, default=Path("results"))
+    parser.add_argument("--no-plot", action="store_true", help="Skip the distance and speed plot")
+    parser.add_argument("--view", action="store_true", help="Open the animated track and circuit activity viewer")
+    parser.add_argument("--gif", action="store_true", help="Save an animated GIF (2.5x playback speed)")
     args = parser.parse_args()
     records = run(args.controller, args.seed, args.layout)
+    hurdles = course(args.layout, args.seed)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     stem = args.output_dir / f"hurdles_{args.layout}_{args.controller}_seed{args.seed}"
     stem.with_suffix(".json").write_text(json.dumps(records, indent=2))
     with stem.with_suffix(".csv").open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(records[0]))
         writer.writeheader(); writer.writerows(records)
+    if not args.no_plot:
+        from visualization.hurdles_view import save_hurdles_plot
+        save_hurdles_plot(records, hurdles, stem.with_suffix(".png"))
     final = records[-1]
     print(f"{args.controller} on {args.layout}: {final['position']:.1f} m in {final['simulation_time']:.2f} s, "
-          f"score {score(records):.2f}; {final['hits']} hits, {final['jumps']} jumps. Logs: {stem}.json/.csv")
+          f"score {score(records):.2f}; {final['hits']} hits, {final['jumps']} jumps, "
+          f"{final['coasts']} coast steps. Logs: {stem}.json/.csv")
+    if args.view or args.gif:
+        from visualization.hurdles_view import animate_hurdles
+        animate_hurdles(records, hurdles, args.controller, show=args.view,
+                        output=stem.with_suffix(".gif") if args.gif else None)
 
 
 if __name__ == "__main__":

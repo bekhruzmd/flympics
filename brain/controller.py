@@ -13,6 +13,7 @@ from .connectome import ConnectomeCircuit, load_manc_front_leg_circuit
 from .dynamics import RateNetwork
 from .hurdles_io import HURDLES_INPUTS, HurdlesDecoder, HurdlesEncoder
 from .motor import MotorDecoder
+from .swimming_io import SWIMMING_INPUTS, SwimmingDecoder, SwimmingEncoder
 from .sensory import LearnedSensoryEncoder, SensoryEncoder, load_encoder_weights
 
 MODELS_DIR = Path(__file__).resolve().parents[1] / "models"
@@ -20,6 +21,7 @@ SPRINT_POLICY = MODELS_DIR / "sprint.json"
 SPRINT_ENCODER = MODELS_DIR / "sprint_encoder.csv"
 SPRINT_ENCODER_INIT = MODELS_DIR / "sprint_encoder_init.csv"
 HURDLES_ENCODER_INIT = MODELS_DIR / "hurdles_encoder_init.csv"
+SWIMMING_ENCODER_INIT = MODELS_DIR / "swimming_encoder_init.csv"
 
 
 class FlyBrainController(Controller):
@@ -60,6 +62,17 @@ class FlyBrainController(Controller):
         weights = load_encoder_weights(Path(path), circuit, HURDLES_INPUTS)
         return cls(circuit=circuit, encoder=HurdlesEncoder(circuit, weights),
                    decoder=HurdlesDecoder(circuit, coast_threshold, jump_threshold))
+
+    @classmethod
+    def swimming(cls, path: Path = SWIMMING_ENCODER_INIT, motor_threshold: float = 0.015,
+                 circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Untrained Swimming fly: starting encoder weights and Sprint's default threshold."""
+        if not math.isfinite(motor_threshold) or not 0 <= motor_threshold <= 1:
+            raise ValueError("Motor threshold must be finite and between 0 and 1.")
+        circuit = circuit if circuit is not None else load_manc_front_leg_circuit()
+        weights = load_encoder_weights(Path(path), circuit, SWIMMING_INPUTS)
+        return cls(circuit=circuit, encoder=SwimmingEncoder(circuit, weights),
+                   decoder=SwimmingDecoder(circuit, threshold=motor_threshold))
 
     @classmethod
     def trained(cls, path: Path = SPRINT_POLICY, circuit: ConnectomeCircuit | None = None) -> FlyBrainController:

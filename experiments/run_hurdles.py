@@ -14,7 +14,9 @@ CONTROLLERS = ("rule", "nocoast", "always_accelerate", "always_coast", "always_j
 LAYOUTS = ("benchmark", "seeded")
 
 
-def make_controller(name: str) -> Controller:
+def make_controller(name: str, policy: Path | None = None) -> Controller:
+    if name == "trained" and policy is not None:
+        return FlyBrainController.from_policy(policy)
     return {
         "rule": HurdleRuleController,
         "nocoast": lambda: HurdleRuleController(coast=False),
@@ -79,6 +81,7 @@ def score(records: list[dict], event: Hurdles | None = None) -> float:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Flympics 200 m Hurdles.")
     parser.add_argument("--controller", choices=CONTROLLERS, default="rule")
+    parser.add_argument("--policy", type=Path, default=None, help="Policy JSON file for the trained controller")
     parser.add_argument("--layout", choices=LAYOUTS, default="benchmark")
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output-dir", type=Path, default=Path("results"))
@@ -86,7 +89,8 @@ def main() -> None:
     parser.add_argument("--view", action="store_true", help="Open the animated track and circuit activity viewer")
     parser.add_argument("--gif", action="store_true", help="Save an animated GIF (2.5x playback speed)")
     args = parser.parse_args()
-    records = run(args.controller, args.seed, args.layout)
+    controller = make_controller(args.controller, policy=args.policy) if args.policy is not None else None
+    records = run(args.controller, args.seed, args.layout, controller=controller)
     hurdles = course(args.layout, args.seed)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     stem = args.output_dir / f"hurdles_{args.layout}_{args.controller}_seed{args.seed}"

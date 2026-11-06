@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 
-from brain.controller import HURDLES_ENCODER_INIT, HURDLES_POLICY, FlyBrainController
+from brain.controller import HURDLES_ENCODER_INIT, HURDLES_GAIN1_POLICY, HURDLES_POLICY, FlyBrainController
 from brain.hurdles_io import (HURDLES_INPUTS, HurdlesDecoder, HurdlesEncoder,
                               initial_hurdles_encoder_weights)
 from brain.motor import MotorDecoder
@@ -113,3 +113,16 @@ def test_hurdles_es_reproduces_benchmark_score():
     assert benchmark_score == pytest.approx(policy["trained"]["benchmark_score"])
     trained_records = run("trained", layout="benchmark")
     assert score(trained_records) == pytest.approx(benchmark_score)
+
+
+def test_hurdles_es_gain1_reproduces_benchmark_score():
+    assert HURDLES_GAIN1_POLICY.exists(), f"Missing policy file: {HURDLES_GAIN1_POLICY}"
+    policy = json.loads(HURDLES_GAIN1_POLICY.read_text())
+    assert policy.get("version") == 1
+    assert policy.get("event") == "hurdles"
+    assert policy.get("gain") == 1.0
+    controller = FlyBrainController.from_policy(HURDLES_GAIN1_POLICY)
+    assert controller.network.gain == 1.0
+    records = run(controller=controller, layout="benchmark")
+    benchmark_score = score(records)
+    assert benchmark_score == pytest.approx(policy["trained"]["benchmark_score"])

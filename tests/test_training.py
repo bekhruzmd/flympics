@@ -9,9 +9,29 @@ from experiments.run_sprint import run
 from experiments.train_sprint import train
 
 
+def assert_same_up_to_rounding(actual, expected, path="policy"):
+    """Equal structure and values; floats may differ in the last bit across platforms.
+
+    np.geomspace can round its last digit differently on different machines (seen on
+    Linux CI), so exact float equality is too strict for a cross-platform test.
+    """
+    if isinstance(expected, float) and not isinstance(actual, bool):
+        assert actual == pytest.approx(expected, rel=1e-12, abs=1e-300), path
+    elif isinstance(expected, dict):
+        assert actual.keys() == expected.keys(), path
+        for key in expected:
+            assert_same_up_to_rounding(actual[key], expected[key], f"{path}.{key}")
+    elif isinstance(expected, list):
+        assert len(actual) == len(expected), path
+        for i, (a, e) in enumerate(zip(actual, expected)):
+            assert_same_up_to_rounding(a, e, f"{path}[{i}]")
+    else:
+        assert actual == expected, path
+
+
 def test_training_reproduces_saved_policy_and_improves_finish():
     policy = train(seed=7)
-    assert policy == json.loads(SPRINT_POLICY.read_text())
+    assert_same_up_to_rounding(policy, json.loads(SPRINT_POLICY.read_text()))
     assert policy["best"]["finished"]
     assert not policy["untrained"]["finished"]
     assert policy["best"]["score"] < policy["untrained"]["score"]

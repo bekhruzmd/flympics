@@ -57,8 +57,8 @@ const EVENTS = {
     ],
   },
   pacing: {
-    label: 'Pacing', title: '400 body lengths', topSpeed: 1.25 / 0.10,
-    note: 'Pacing: 400 BL with a limited energy budget (100 units). The threshold-trained fly cannot react to its energy and floors it (198 s, same as always-accelerate), losing to random (130 s); rule cruises at 3.3 BL/s (123 s).',
+    label: '400 m', title: '400 body lengths, pace yourself', topSpeed: 1.25 / 0.10,
+    note: '400 m: a limited energy budget (100 units), so the fly has to pace itself. The threshold-trained fly cannot react to its energy and floors it (198 s, same as always-accelerate), losing to random (130 s); rule cruises at 3.3 BL/s (123 s).',
     controllers: [
       { id: 'trained', name: 'Trained fly', note: 'MANC circuit, threshold-trained (floors it, 198 s)' },
       UNTRAINED,

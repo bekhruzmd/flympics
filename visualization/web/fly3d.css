@@ -341,3 +341,11 @@ h1 span {
   .rack { grid-auto-flow: initial; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); row-gap: 24px; }
   .vial { width: min(100%, 62px); }
 }
+
+.is-race .edge-marker { background: var(--tape-shade); padding-left: 1.8em; }
+.edge-marker::before {
+  content: ""; position: absolute; left: .5em; top: calc(50% - 4px);
+  width: 0; height: 0; border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent; border-left: 7px solid var(--ink);
+  transform: rotate(var(--pointer-angle)); transform-origin: 3px 4px;
+}

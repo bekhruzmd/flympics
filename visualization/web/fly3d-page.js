@@ -645,6 +645,42 @@ function bodyLengthOnScreen() {
   return (Math.abs(far.x - near.x) / 2) * canvas.clientWidth;
 }
 
+// Fit the recorded world positions, including swimmers on the return length.
+// Cap the view at 48 body lengths from its target to keep the scans legible.
+const MAX_PACK_DISTANCE = 120;
+function fitPack() {
+  if (!raceLanes.length) return;
+  const direction = camera.position.clone().sub(controls.target).normalize();
+  const right = new THREE.Vector3().crossVectors(camera.up, direction).normalize();
+  const up = new THREE.Vector3().crossVectors(direction, right).normalize();
+  const bounds = new THREE.Box3();
+  for (const lane of raceLanes) {
+    const point = lane.holder.position.clone();
+    point.y = (lane.record?.height ?? 0) * BODY_LENGTH_MM + 1.5;
+    bounds.expandByPoint(point);
+  }
+  const centre = bounds.getCenter(new THREE.Vector3());
+  const vertical = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 0.78;
+  const horizontal = vertical * camera.aspect;
+  let distance = 24;
+  for (const lane of raceLanes) {
+    const offset = lane.holder.position.clone().sub(centre);
+    offset.y += (lane.record?.height ?? 0) * BODY_LENGTH_MM + 1.5;
+    distance = Math.max(distance, offset.dot(direction) +
+      Math.max((Math.abs(offset.dot(right)) + 3) / horizontal,
+               (Math.abs(offset.dot(up)) + 4) / vertical));
+  }
+  const anchor = cameraLane().position.clone();
+  anchor.y = centre.y;
+  // When the field exceeds the cap, keep the action near the followed lane.
+  centre.lerp(anchor, Math.max(0, 1 - MAX_PACK_DISTANCE / distance));
+  controls.target.copy(centre);
+  camera.position.copy(direction).multiplyScalar(Math.min(distance, MAX_PACK_DISTANCE)).add(centre);
+  cameraX = centre.x;
+  scene.fog.near = 140;
+  scene.fog.far = 190;
+}
+
 // ---------- Playback ----------
 function follow(dt) {
   const goalX = focusX();
@@ -652,6 +688,8 @@ function follow(dt) {
   cameraX += (goalX - cameraX) * amount;
   const dx = cameraX - controls.target.x;
   controls.target.x += dx; camera.position.x += dx;
+  if (eventId !== 'archery' && !photoShown) fitPack();
+  else { scene.fog.near = 40; scene.fog.far = 95; }
   snapCamera = false;
   const lit = cameraLane();
   ring.position.set(lit.position.x + 0.6, 11, lit.position.z + 2.2);
@@ -945,13 +983,23 @@ function renderRaceTags() {
     const inFront = tagPoint.dot(cameraDirection) > camera.position.dot(cameraDirection);
     tagPoint.project(camera);
     const x = (tagPoint.x + 1) * width / 2, y = (1 - tagPoint.y) * height / 2;
-    tag.hidden = !inFront || x < 0 || x > width || y < 0 || y > height || tagPoint.z > 1;
-    if (tag.hidden) continue;
+    const outside = !inFront || x < 8 || x > width - 8 || y < topEdge || y > height - 8 || tagPoint.z > 1 || camera.position.distanceTo(lane.holder.position) > 185;
+    tag.hidden = false;
+    tag.classList.toggle('edge-marker', outside);
+    const dx = (x - width / 2) * (inFront ? 1 : -1);
+    const dy = (y - height / 2) * (inFront ? 1 : -1);
+    tag.style.setProperty('--pointer-angle', `${Math.atan2(dy, dx)}rad`);
+    tag.textContent = lane.name;
     const w = tag.offsetWidth, h = tag.offsetHeight;
-    const left = Math.max(w / 2 + 2, Math.min(width - w / 2 - 2, x));
-    const base = Math.max(topEdge + h, Math.min(height - 4, y));
+    const edgeScale = Math.min(
+      Math.max(1, width / 2 - w / 2 - 4) / Math.max(0.001, Math.abs(dx)),
+      Math.max(1, height / 2 - topEdge - h - 4) / Math.max(0.001, Math.abs(dy)));
+    const markerX = outside ? width / 2 + dx * edgeScale : x;
+    const markerY = outside ? height / 2 + dy * edgeScale : y;
+    const left = Math.max(w / 2 + 2, Math.min(width - w / 2 - 2, markerX));
+    const base = Math.max(topEdge + h, Math.min(height - 4, markerY));
     let placed = false;
-    for (const dy of [0, -1, 1, -2, 2, -3, 3]) {
+    for (const dy of [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6]) {
       const bottom = base + dy * (h + 3);
       const box = { l: left - w / 2, r: left + w / 2, t: bottom - h, b: bottom };
       if (box.t < topEdge || box.b > height - 2 ||

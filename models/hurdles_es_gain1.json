@@ -14,13 +14,14 @@
     "JUMP"
   ],
   "thresholds": [
-    -0.07958503770058174,
-    0.02206394644233889
+    -0.41,
+    0.04659113
   ],
+  "gain": 1.0,
   "hyperparameters": {
-    "generations": 5,
-    "pairs": 16,
-    "population": 33,
+    "generations": 20,
+    "pairs": 24,
+    "population": 49,
     "weight_sigma": 0.3,
     "threshold_sigma": 0.02,
     "lr": 0.05,
@@ -39,26 +40,27 @@
       10,
       11
     ],
-    "imitation_generations": 40,
-    "start_sigma": 0.5
+    "imitation_generations": 100,
+    "start_sigma": 0.5,
+    "gain": 1.0
   },
-  "train_fitness": -57.77083333333334,
+  "train_fitness": -61.05,
   "training_seconds": 311.1,
   "trained": {
-    "benchmark_score": 59.25,
+    "benchmark_score": 61.05,
     "benchmark_finished": true,
-    "benchmark_time": 59.25,
-    "benchmark_hits": 11,
-    "benchmark_jumps": 1,
-    "benchmark_coasts": 2,
+    "benchmark_time": 61.05,
+    "benchmark_hits": 0,
+    "benchmark_jumps": 11,
+    "benchmark_coasts": 321,
     "held_out_seeds": "1000-1049",
-    "held_out_mean_score": 57.519,
-    "held_out_min_score": 52.65,
-    "held_out_max_score": 61.7,
-    "held_out_finished_rate": 1.0,
-    "held_out_mean_hits": 9.7,
-    "held_out_mean_jumps": 1.0,
-    "held_out_mean_coasts": 7.24
+    "held_out_mean_score": 87.415,
+    "held_out_min_score": 54.5,
+    "held_out_max_score": 243.182,
+    "held_out_finished_rate": 0.44,
+    "held_out_mean_hits": 0.26,
+    "held_out_mean_jumps": 9.52,
+    "held_out_mean_coasts": 652.04
   },
   "untrained": {
     "benchmark_score": 58.4,
@@ -75,6 +77,5 @@
     "held_out_mean_hits": 9.7,
     "held_out_mean_jumps": 0.0,
     "held_out_mean_coasts": 1.0
-  },
-  "gain": 1.0
+  }
 }

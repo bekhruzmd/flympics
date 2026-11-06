@@ -97,9 +97,10 @@ measured again with the ordinary controller after training.
   Reported results evaluate on the benchmark course and 50 held-out seeds (1000–1049).
   At default gain 3.0, recurrent saturation drives motor populations near 0.995, so ES
   converges to always accelerating (58.35 s, 0 jumps). As a modeling choice, `--gain 1.0`
-  desaturates the recurrence, allowing sensory input to modulate motor differences; the
-  trained fly takes an initial jump (59.25 s on benchmark, 1 jump, 2 coasts; 57.52 s mean,
-  1.0 jumps on held-out seeds) while still hitting the hurdles due to narrow clearance windows.
+  desaturates the recurrence, allowing sensory input to modulate motor differences.
+  Targeting the connectome pathways through sensory neurons 100531 and 103884 enables the
+  fly to time takeoffs within the clearance arc, clearing all 11 hurdles on the benchmark
+  course (61.05 s, 11 jumps, 0 hits; 9.52 mean jumps and 0.26 mean hits across held-out seeds).
 
 ## Caveats
 

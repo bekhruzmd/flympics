@@ -13,7 +13,8 @@ from .connectome import ConnectomeCircuit, load_manc_front_leg_circuit
 from .dynamics import RateNetwork
 from .eye import ARCHERY_EYE_INPUTS, ArcheryEyeEncoder
 from .archery_io import ARCHERY_INITIAL_THRESHOLDS, ARCHERY_INPUTS, ArcheryDecoder, ArcheryEncoder
-from .hurdles_io import HURDLES_INPUTS, HurdlesDecoder, HurdlesEncoder
+from .hurdles_io import (HURDLES_INITIAL_THRESHOLDS, HURDLES_INPUTS, HurdlesDecoder,
+                         HurdlesEncoder)
 from .motor import MotorDecoder
 from .swimming_io import SWIMMING_INPUTS, SwimmingDecoder, SwimmingEncoder
 from .sensory import LearnedSensoryEncoder, SensoryEncoder, load_encoder_weights
@@ -29,6 +30,8 @@ SPRINT_EYE_POLICY = MODELS_DIR / "sprint_eye.json"
 SPRINT_ENCODER = MODELS_DIR / "sprint_encoder.csv"
 SPRINT_ENCODER_INIT = MODELS_DIR / "sprint_encoder_init.csv"
 HURDLES_ENCODER_INIT = MODELS_DIR / "hurdles_encoder_init.csv"
+HURDLES_POLICY = MODELS_DIR / "hurdles_es.json"
+HURDLES_GAIN1_POLICY = MODELS_DIR / "hurdles_es_gain1.json"
 SWIMMING_ENCODER_INIT = MODELS_DIR / "swimming_encoder_init.csv"
 ARCHERY_ENCODER_INIT = MODELS_DIR / "archery_encoder_init.csv"
 ARCHERY_POLICY = MODELS_DIR / "archery.json"
@@ -45,6 +48,7 @@ BAND_EVENTS = {
     "archery_eye": (ARCHERY_EYE_INPUTS, ArcheryEyeEncoder, ArcheryDecoder),
     "steeplechase": (STEEPLECHASE_INPUTS, SteeplechaseEncoder, SteeplechaseDecoder),
     "pacing": (PACING_INPUTS, PacingEncoder, PacingDecoder),
+    "hurdles": (HURDLES_INPUTS, HurdlesEncoder, HurdlesDecoder),
 }
 
 
@@ -57,7 +61,8 @@ class FlyBrainController(Controller):
     def __init__(self, motor_threshold: float = 0.015,
                  encoder_weights: Path | np.ndarray | None = None,
                  circuit: ConnectomeCircuit | None = None, *,
-                 encoder=None, decoder: MotorDecoder | None = None) -> None:
+                 encoder=None, decoder: MotorDecoder | None = None,
+                 gain: float | None = None) -> None:
         if not math.isfinite(motor_threshold) or not 0 <= motor_threshold <= 1:
             raise ValueError("Motor threshold must be finite and between 0 and 1.")
         if encoder is not None and encoder_weights is not None:
@@ -71,7 +76,10 @@ class FlyBrainController(Controller):
             if not isinstance(encoder_weights, np.ndarray):
                 encoder_weights = load_encoder_weights(Path(encoder_weights), self.circuit)
             self.encoder = LearnedSensoryEncoder(self.circuit, encoder_weights)
-        self.network = RateNetwork(self.circuit)
+        if gain is not None:
+            self.network = RateNetwork(self.circuit, gain=gain)
+        else:
+            self.network = RateNetwork(self.circuit)
         self.decoder = decoder if decoder is not None else MotorDecoder(self.circuit, threshold=motor_threshold)
         self.last_summary: dict[str, float] = {}
 
@@ -88,6 +96,12 @@ class FlyBrainController(Controller):
                    decoder=HurdlesDecoder(circuit, coast_threshold, jump_threshold))
 
     @classmethod
+    def hurdles_trained(cls, path: Path = HURDLES_POLICY,
+                        circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Trained Hurdles fly from policy JSON."""
+        return cls.from_policy(path, circuit)
+
+    @classmethod
     def swimming(cls, path: Path = SWIMMING_ENCODER_INIT, motor_threshold: float = 0.015,
                  circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
         """Untrained Swimming fly: starting encoder weights and Sprint's default threshold."""
@@ -100,7 +114,8 @@ class FlyBrainController(Controller):
 
     @classmethod
     def band_event(cls, event: str, weights: Path | np.ndarray, thresholds,
-                   circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+                   circuit: ConnectomeCircuit | None = None,
+                   gain: float | None = None) -> FlyBrainController:
         """Build a band-decoder controller from encoder weights (array or CSV) and thresholds."""
         if event not in BAND_EVENTS:
             raise ValueError(f"Unknown band event {event!r}; choose from {sorted(BAND_EVENTS)}")
@@ -108,7 +123,8 @@ class FlyBrainController(Controller):
         circuit = circuit if circuit is not None else load_manc_front_leg_circuit()
         if not isinstance(weights, np.ndarray):
             weights = load_encoder_weights(Path(weights), circuit, inputs)
-        return cls(circuit=circuit, encoder=encoder(circuit, weights), decoder=decoder(circuit, thresholds))
+        return cls(circuit=circuit, encoder=encoder(circuit, weights), decoder=decoder(circuit, thresholds),
+                   gain=gain)
 
     @classmethod
     def archery(cls, path: Path = ARCHERY_ENCODER_INIT, thresholds=ARCHERY_INITIAL_THRESHOLDS,
@@ -143,7 +159,9 @@ class FlyBrainController(Controller):
         policy = json.loads(path.read_text())
         if policy.get("version") != 1 or policy.get("event") not in BAND_EVENTS:
             raise ValueError(f"{path}: expected a version 1 band policy for {sorted(BAND_EVENTS)}.")
-        return cls.band_event(policy["event"], path.parent / policy["encoder"], policy["thresholds"], circuit)
+        gain = float(policy["gain"]) if "gain" in policy else None
+        return cls.band_event(policy["event"], path.parent / policy["encoder"], policy["thresholds"], circuit,
+                              gain=gain)
 
     @classmethod
     def trained(cls, path: Path = SPRINT_POLICY, circuit: ConnectomeCircuit | None = None) -> FlyBrainController:

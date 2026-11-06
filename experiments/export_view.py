@@ -3,7 +3,9 @@ from pathlib import Path
 import argparse
 import json
 
-from experiments.serve_view import viewer_payload
+from experiments.serve_view import HURDLES_CONTROLLERS, viewer_payload
+
+# Hurdles includes 'trained' run: "Trained fly (evolution-trained)"
 
 WEB_DIR = Path(__file__).resolve().parents[1] / 'visualization' / 'web'
 

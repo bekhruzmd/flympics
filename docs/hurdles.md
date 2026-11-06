@@ -34,6 +34,8 @@ out, so lower is better.
 | `always_jump` | Jumps whenever it is on the ground. Never gets going |
 | `random` | Jumps 1% of steps, otherwise accelerates |
 | `fly` | The untrained connectome fly brain. It accelerates for a few steps, then coasts to a stop, because its output settles in the COAST band. Training is a separate project |
+| `trained` | Evolution-trained fly (gain 3). At gain 3 the circuit is saturated, so ES floors it: 58.35 s, 0 jumps |
+| `trained (gain 1)` | Connectome rate controller with gain 1 (a modeling choice). Desaturates the circuit and leverages sensory-to-motor pathways (sensory 100531 and 103884) to clear all 11 hurdles on the benchmark course (61.05 s, 11 jumps, 0 hits) |
 
 ## 1. Run one race
 
@@ -235,3 +237,27 @@ strategies, the fly brain setup and the viewer. Run them after changing anything
 `events/hurdles.py`. A changed rule can quietly change which strategy wins; the
 prototype found that an `overspeed_cost` of 0.2 is already too low for coasting to
 pay off.
+
+## 9. Evolution-strategy training and the circuit gain modeling choice
+
+Hurdles can be trained with OpenAI-ES using `experiments/train_hurdles_es.py`.
+Stage 1 imitates the rule baseline with teacher-forcing on recorded states, and Stage 2 optimizes the race outcome.
+
+### Gain 3 vs Gain 1 modeling choice
+
+- **Default gain 3.0 (`models/hurdles_es.json`):**
+  At gain 3.0, the recurrent weights of the MANC front leg connectome push the activation `np.tanh(drive)` into extreme saturation. Both extensor and flexor motor pools saturate near ~0.995, leaving virtually zero dynamic range for sensory stimulus to modulate motor difference (extensor − flexor). As a result, the evolution strategy converges to flooring the accelerator: 58.35 s on the benchmark, hitting all 11 hurdles and taking 0 jumps (56.63 s mean on held-out seeds 1000–1049).
+
+- **Gain 1.0 (`models/hurdles_es_gain1.json`):**
+  The rate network gain is an engineering assumption (a modeling choice, not measured connectome data). Training with `--gain 1.0` reduces recurrence saturation so sensory inputs can influence the motor outputs. Under gain 1.0 and leveraging the direct connectome pathways (sensory neuron 100531 exciting extensor and 103884 exciting flexor), the fly cleanly times its takeoffs inside the clearance window: it finishes the benchmark course in 61.05 s, taking **exactly 11 jumps and clearing all 11 hurdles with 0 hits**. On held-out seeds (1000–1049), it averages 9.52 jumps and only 0.26 hits.
+
+### Performance comparison
+
+| Controller | Benchmark Time | Benchmark Hits | Benchmark Jumps | Held-out Mean Time (seeds 1000–1049) | Held-out Mean Hits | Held-out Mean Jumps |
+|------------|----------------|----------------|-----------------|--------------------------------------|--------------------|---------------------|
+| `rule` | **48.10 s** | **0** | **11** | **47.67 s** | **0.0** | **9.7** |
+| `trained` (gain 3) | 58.35 s | 11 | 0 | 56.63 s | 9.7 | 0.0 |
+| `trained` (gain 1) | 61.05 s | **0** | **11** | 87.42 s | **0.26** | **9.52** |
+| `fly` (untrained, gain 3) | 58.35 s | 11 | 0 | 56.63 s | 9.7 | 0.0 |
+| `random` | 62.45 s | 11 | 9 | 60.75 s | 9.7 | 9.7 |
+

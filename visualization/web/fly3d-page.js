@@ -47,8 +47,9 @@ const EVENTS = {
   },
   archery: {
     label: 'Archery', title: '6 arrows, crosswind', topSpeed: 1, scored: true,
-    note: 'Archery: aim against a gusty crosswind, then release; scored in points, so higher is better. There is no real bow: the arrows land where the recorded run says.',
+    note: 'Archery: points, higher is better; no real bow, arrows land where the recorded run says. "Sees the wind" senses wind via a FlyVis calibration (a model of real fly motion vision); the eye-to-leg link is modeled.',
     controllers: [
+      { id: 'eye', name: 'Sees the wind', note: 'FlyVis eye, evolution-trained' },
       { id: 'trained', name: 'Trained fly', note: 'MANC circuit, evolution-trained' },
       UNTRAINED,
       { id: 'rule', name: 'Rule', note: 'Aims off the wind, releases when drawn' },
@@ -330,11 +331,23 @@ $('fast').onclick = () => {
 };
 $('timeline').oninput = event => { index = Number(event.target.value); setPlaying(false); };
 
+for (const button of $('eye-modes').children) {
+  button.onclick = () => {
+    eyeMode = button.dataset.eye;
+    for (const other of $('eye-modes').children) other.setAttribute('aria-checked', String(other === button));
+    if (selected === 'eye') { selectRun('eye'); setPlaying(true); }
+  };
+}
+
 addEventListener('keydown', event => {
   if (event.target.closest?.('input, select, textarea')) return;
   if (event.code === 'Space') { event.preventDefault(); $('play').click(); }
   else if (event.key >= '1' && event.key <= '4') selectRun(EVENTS[eventId].controllers[Number(event.key) - 1]?.id);
   else if (event.key === 'f') setMode(!flying);
+  else if (event.key === 'p' || event.key === 'P') togglePresenter();
+  else if (presenting && event.key === 'ArrowRight') presenterStep(step + 1);
+  else if (presenting && event.key === 'ArrowLeft') presenterStep(step - 1);
+  else if (presenting && event.key === 'Escape') togglePresenter();
 });
 
 // ---------- Events ----------
@@ -393,23 +406,26 @@ function selectEvent(id) {
   frameThePad();
   buildRuler(Math.ceil(Math.max(...Object.values(data.runs).map(run => run.at(-1).simulation_time))));
   buildRack();
-  selectRun(['sprint', 'steeplechase', 'archery'].includes(id) ? 'trained' : 'rule');
+  selectRun(id === 'archery' ? 'eye' : ['sprint', 'steeplechase'].includes(id) ? 'trained' : 'rule');
   index = 0; placeFly(0);
   frameThePad();
 }
 
 // ---------- Rack of vials ----------
-const key = id => `${eventId}:${id}`;
+// The "Sees the wind" vial plays one of three recorded runs: eye open, blindfolded or swapped.
+let eyeMode = 'eye';
+const runId = id => (id === 'eye' ? eyeMode : id);
+const key = id => `${eventId}:${runId(id)}`;
 const goal = () => race.max_points ?? race.distance;
 const progressOf = record => EVENTS[eventId].scored ? record.total_points : record.position;
 function resultOf(id) {
-  const last = race.runs[id].at(-1);
+  const last = race.runs[runId(id)].at(-1);
   if (EVENTS[eventId].scored) return `${last.total_points} of ${race.max_points} points`;
   return last.position >= race.distance ? `Finished in ${last.simulation_time.toFixed(1)} s` : `Stopped at ${last.position.toFixed(1)} BL`;
 }
 
 function buildRack() {
-  $('rack').replaceChildren(...EVENTS[eventId].controllers.filter(({ id }) => race.runs[id]).map(({ id, name, note }) => {
+  $('rack').replaceChildren(...EVENTS[eventId].controllers.filter(({ id }) => race.runs[runId(id)]).map(({ id, name, note }) => {
     const vial = document.createElement('button');
     vial.type = 'button'; vial.className = 'vial'; vial.dataset.id = id;
     vial.setAttribute('role', 'radio');
@@ -446,8 +462,9 @@ function buildRuler(seconds) {
 }
 
 function selectRun(id) {
-  if (!race?.runs[id]) return;
-  selected = id; records = race.runs[id]; index = 0;
+  if (!race?.runs[runId(id)]) return;
+  selected = id; records = race.runs[runId(id)]; index = 0;
+  $('eye-modes').hidden = !(eventId === 'archery' && id === 'eye');
   setPlaying(false);
   $('timeline').max = String(records.length - 1);
   $('timeline').value = '0';
@@ -494,6 +511,102 @@ function follow() {
   flyPoint.set(holder.position.x, 0.6, 0);
 }
 
+// ---------- The eye tag (Archery, "Sees the wind") ----------
+function eyeReport(wind) {
+  const table = race.eye;
+  const interp = w => {
+    const xs = table.wind, ys = table.signal, x = Math.min(xs.at(-1), Math.max(xs[0], w));
+    let i = 0; while (i < xs.length - 2 && xs[i + 1] < x) i++;
+    return ys[i] + (ys[i + 1] - ys[i]) * (x - xs[i]) / (xs[i + 1] - xs[i]);
+  };
+  const centre = interp(0);
+  return interp(eyeMode === 'eye_swapped' ? -wind : wind) - centre;  // > 0: T4/T5 report leftward drift
+}
+function updateEyeTag(record) {
+  const show = eventId === 'archery' && selected === 'eye' && record && race.eye;
+  $('eye-tag').hidden = !show;
+  if (!show) return;
+  if (eyeMode === 'eye_blind') { $('eye-tag').textContent = 'Eye blindfolded: it reports no wind'; return; }
+  const signal = eyeReport(record.wind);
+  const side = Math.abs(signal) < 0.002 ? 'Eye: hardly any wind' : `Eye sees wind from the ${signal > 0 ? 'right' : 'left'}`;
+  $('eye-tag').textContent = eyeMode === 'eye_swapped' ? `${side} (left and right swapped)` : side;
+}
+
+// ---------- The circuit panel: the 135 MANC neurons, by role ----------
+const circuitCanvas = $('circuit'), circuitContext = circuitCanvas.getContext('2d');
+const ROLE_ORDER = [['sensory', 'Sensory'], ['intrinsic', 'Interneurons'], ['motor_extensor', 'Extensor'], ['motor_flexor', 'Flexor']];
+function drawCircuit(record) {
+  const nodes = payload?.circuit?.nodes; if (!nodes) return;
+  const ratio = Math.min(devicePixelRatio, 2), width = circuitCanvas.clientWidth, height = circuitCanvas.clientHeight;
+  if (!width || !height) return;
+  if (circuitCanvas.width !== Math.round(width * ratio)) { circuitCanvas.width = Math.round(width * ratio); circuitCanvas.height = Math.round(height * ratio); }
+  const g = circuitContext; g.setTransform(ratio, 0, 0, ratio, 0, 0); g.clearRect(0, 0, width, height);
+  const activity = record?.neuron_activity;
+  const columns = ROLE_ORDER.map(([role]) => nodes.map((n, i) => (n.role === role ? i : -1)).filter(i => i >= 0));
+  const labelHeight = 16, barHeight = 26, top = labelHeight, bottom = height - barHeight - 6;
+  const columnWidth = width / columns.length;
+  g.font = `600 ${Math.max(10, Math.round(width / 26))}px Archivo, system-ui, sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  columns.forEach((ids, c) => {
+    g.fillStyle = '#a6a89d'; g.fillText(ROLE_ORDER[c][1], columnWidth * (c + 0.5), 0);
+    const per = Math.ceil(Math.sqrt(ids.length * (columnWidth - 8) / Math.max(1, bottom - top)));
+    const cols = Math.max(1, per), rows = Math.ceil(ids.length / cols);
+    const step = Math.min((columnWidth - 8) / cols, (bottom - top) / rows), radius = Math.max(1.5, step * 0.36);
+    ids.forEach((id, k) => {
+      const x = columnWidth * c + 4 + step * (k % cols + 0.5), y = top + step * (Math.floor(k / cols) + 0.5);
+      const a = activity ? Math.max(0, Math.min(1, activity[id])) : 0;
+      g.beginPath(); g.arc(x, y, radius, 0, Math.PI * 2);
+      g.fillStyle = activity ? `rgba(230, 160, 60, ${0.12 + 0.88 * a})` : 'rgba(166, 168, 157, 0.18)';
+      g.fill();
+    });
+  });
+  if (!activity) return;
+  const mean = ids => ids.reduce((sum, i) => sum + activity[i], 0) / ids.length;
+  const ext = mean(columns[2]), flex = mean(columns[3]);
+  [['Extensor', ext], ['Flexor', flex]].forEach(([label, value], k) => {
+    const y = bottom + 6 + k * (barHeight / 2);
+    g.fillStyle = '#2b2e29'; g.fillRect(70, y + 2, width - 74, barHeight / 2 - 4);
+    g.fillStyle = '#f1efe6'; g.fillRect(70, y + 2, (width - 74) * value, barHeight / 2 - 4);
+    g.fillStyle = '#a6a89d'; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillText(`${label} ${value.toFixed(2)}`, 0, y + barHeight / 4);
+  });
+}
+function updateCircuitNote(record) {
+  const isBrain = Boolean(record?.neuron_activity);
+  const controller = EVENTS[eventId].controllers.find(c => c.id === selected);
+  $('circuit-note').textContent = isBrain
+    ? '135 MANC neurons, modeled activity 0 to 1'
+    : `${controller?.name ?? 'This controller'} is a hand-written baseline: no circuit involved`;
+}
+
+// ---------- Presenter mode: one key steps through the story ----------
+const STORY = [
+  { event: 'sprint', run: 'fly', rate: 4, caption: 'Real fly wiring, untrained: it barely gets going.' },
+  { event: 'sprint', run: 'trained', rate: 4, caption: 'Same wiring, tuned inputs and outputs: now it runs.' },
+  { event: 'hurdles', run: 'rule', rate: 2, caption: 'Hurdles: the jumps are part of the race physics.' },
+  { event: 'swimming', run: 'rule', rate: 4, caption: 'Swimming is a game model: real fruit flies cannot swim.' },
+  { event: 'archery', run: 'eye', eye: 'eye', rate: 1, caption: 'Archery: the fly senses the wind through a model of its real eyes (FlyVis).' },
+  { event: 'archery', run: 'eye', eye: 'eye_blind', rate: 1, caption: 'Blindfolded: same fly, but its eye reports no wind.' },
+  { event: 'archery', run: 'eye', eye: 'eye_swapped', rate: 1, caption: 'Left and right swapped: it aims the wrong way.' },
+];
+let presenting = false, step = 0;
+function togglePresenter() {
+  presenting = !presenting;
+  $('presenter').hidden = !presenting;
+  if (presenting) presenterStep(0);
+}
+function presenterStep(n) {
+  step = Math.max(0, Math.min(STORY.length - 1, n));
+  const scene = STORY[step];
+  if (scene.eye) { eyeMode = scene.eye; for (const b of $('eye-modes').children) b.setAttribute('aria-checked', String(b.dataset.eye === eyeMode)); }
+  if (eventId !== scene.event) selectEvent(scene.event);
+  selectRun(scene.run);
+  rate = scene.rate; $('fast').setAttribute('aria-pressed', String(rate === 4));
+  setPlaying(true);
+  $('presenter').textContent = `${step + 1} / ${STORY.length}   ${scene.caption}`;
+}
+$('presenter').onclick = () => presenterStep(step + 1);
+
 let last = performance.now(), wallTime = 0, lastRackUpdate = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now; wallTime += dt;
@@ -527,6 +640,10 @@ function frame(now) {
     lift: flying ? 1.6 + (reducedMotion ? 0 : 0.05 * Math.sin(wallTime * 3)) : r.height * BODY_LENGTH_MM,  // recorded jump height
   });
   scaleBar.style.width = `${bodyLengthOnScreen().toFixed(1)}px`;
+  const shown = records[Math.min(records.length - 1, Math.floor(index))];
+  updateEyeTag(shown);
+  drawCircuit(shown);
+  updateCircuitNote(shown);
   $('time').textContent = r.time.toFixed(1);
   $('distance').textContent = archery ? String(r.record.total_points) : r.position.toFixed(1);
   $('speed').textContent = archery ? (r.record.wind + 0).toFixed(1).replace(/^-0\.0$/, '0.0') : r.velocity.toFixed(1);

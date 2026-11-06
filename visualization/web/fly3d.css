@@ -98,6 +98,8 @@ h1 span {
 .tape-action[data-action="PULL"] { background: var(--pink); }
 .tape-action[data-action="RECOVER"] { background: var(--blue); }
 .tape-action[data-action="JUMP"] { background: var(--yellow); }
+.tape-action[data-action="RELEASE"] { background: var(--pink); }
+.tape-action[data-action="LEFT"], .tape-action[data-action="RIGHT"] { background: var(--blue); }
 .tape-action[data-action] span { color: rgba(21, 21, 19, .75); }
 
 .deck { display: flex; flex-wrap: wrap; gap: calc(var(--u) * .5); margin-top: calc(var(--u) * .3); }
@@ -199,7 +201,8 @@ h1 span {
     --u: 15px;
   }
   .masthead { flex-flow: row wrap; align-items: flex-end; justify-content: space-between; }
-  .events { flex-direction: row; order: 3; width: 100%; margin-top: 4px; }
+  .events { flex-flow: row wrap; order: 3; width: 100%; margin-top: 4px; }
+  .bench > * { min-width: 0; }
   .events .tape-button[aria-checked="true"] { transform: translateY(-3px); }
   h1 { font-size: 46px; }
   .pad-area { height: 62vw; min-height: 260px; }

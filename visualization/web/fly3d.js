@@ -221,7 +221,8 @@ class Fly {
     for (const t of ['tarsus2', 'tarsus3', 'tarsus4', 'tarsus5']) this.aim(`${leg}_${t}`, tip);
   }
 
-  poseHuman(phase, effort, time, { lift = 0, event = 'sprint', airborne = false } = {}) {
+  poseHuman(phase, effort, time, { lift = 0, event = 'sprint', airborne = false, draw = 0 } = {}) {
+    const jumpEvent = event === 'hurdles' || event === 'steeplechase';
     const P = this.parts;
     for (const [name, part] of Object.entries(P)) {
       if (!name.match(/^[lr][fmh]_/) && name !== 'c_thorax') {
@@ -257,12 +258,19 @@ class Fly {
     }
 
     // Upright: torso nearly vertical, leaning into the run; head turned to face forward.
-    const lean = airborne && event === 'hurdles' ? 40 : 8 + 12 * effort;
+    const lean = airborne && jumpEvent ? 40 : 8 + 12 * effort;
     P.c_thorax.joint.quaternion.setFromAxisAngle(Y_AXIS, -(90 - lean) * DEG);
     P.c_head.joint.quaternion.setFromAxisAngle(Y_AXIS, (90 - lean - 10) * DEG);
     this.root.updateMatrixWorld(true);
 
-    if (airborne && event === 'hurdles') {
+    if (event === 'archery') {
+      // Archer's stance: feet apart, bow arm straight out at the target, draw arm pulled back.
+      this.limb('lh', sag(-12, 0.25), sag(-12, 0.22), sag(70, 0.2));
+      this.limb('rh', sag(12, -0.25), sag(12, -0.22), sag(90, -0.2));
+      this.limb('lf', new THREE.Vector3(1, 0.05, 0.08).normalize(), new THREE.Vector3(1, 0.02, 0.1).normalize(), new THREE.Vector3(1, 0, 0.1).normalize());
+      const pull = Math.min(1, draw);
+      this.limb('rf', new THREE.Vector3(0.9 - 0.9 * pull, -0.35, 0.15).normalize(), new THREE.Vector3(1 - 1.9 * pull, 0.15, 0.05).normalize(), new THREE.Vector3(1, 0, 0));
+    } else if (airborne && jumpEvent) {
       // Hurdle clearance: lead leg straight over the bar, trail leg folded out to the side,
       // opposite arm reaching for the lead foot.
       this.limb('rh', sag(88, -0.05), sag(92, -0.05), sag(150, -0.05));

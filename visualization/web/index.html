@@ -21,8 +21,8 @@
 
   <aside class="readouts" aria-label="Run readouts">
     <p class="tape tape-time"><span>Time</span><output id="time">0.0</output><small>s</small></p>
-    <p class="tape"><span>Distance</span><output id="distance">0.0</output><small>BL</small></p>
-    <p class="tape"><span>Speed</span><output id="speed">0.0</output><small>BL/s</small></p>
+    <p class="tape"><span id="distance-label">Distance</span><output id="distance">0.0</output><small id="distance-unit">BL</small></p>
+    <p class="tape"><span id="speed-label">Speed</span><output id="speed">0.0</output><small id="speed-unit">BL/s</small></p>
     <p class="tape tape-action" id="action-tape"><span>Action</span><output id="action">Loading runs</output></p>
     <div class="deck">
       <button class="tape-button play" id="play" type="button" disabled aria-label="Play">

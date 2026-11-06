@@ -45,3 +45,15 @@ def test_viewer_event_runs_match_their_runners():
     for name in SWIMMING_CONTROLLERS:
         assert events['swimming']['runs'][name] == run_swimming.run(name, 7)
     assert events['swimming']['pool_length'] == 50.0
+
+
+def test_viewer_archery_and_steeplechase_match_their_runners():
+    from experiments import run_archery, run_steeplechase
+    from experiments.serve_view import ARCHERY_CONTROLLERS, STEEPLECHASE_CONTROLLERS
+    events = viewer_payload(7)['events']
+    for name in ARCHERY_CONTROLLERS:
+        assert events['archery']['runs'][name] == run_archery.run(name, 7)
+    for name in STEEPLECHASE_CONTROLLERS:
+        assert events['steeplechase']['runs'][name] == run_steeplechase.run(name, 7)
+    assert events['archery']['max_points'] == 60
+    assert all(events['steeplechase']['hurdles'][i] for i in events['steeplechase']['water'])

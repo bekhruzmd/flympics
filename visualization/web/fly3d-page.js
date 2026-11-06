@@ -35,6 +35,26 @@ const EVENTS = {
       { id: 'random', name: 'Random', note: 'Seeded random pulls' },
     ],
   },
+  steeplechase: {
+    label: 'Steeplechase', title: '600 body lengths', topSpeed: 1.25 / 0.16,
+    note: 'Steeplechase: 12 barriers, four with a water pit behind, and a stamina budget; jumps and splashes are part of the race physics.',
+    controllers: [
+      { id: 'trained', name: 'Trained fly', note: 'MANC circuit, evolution-trained' },
+      UNTRAINED,
+      { id: 'rule', name: 'Rule', note: 'Paces itself, jumps each barrier' },
+      { id: 'random', name: 'Random', note: 'Seeded random actions' },
+    ],
+  },
+  archery: {
+    label: 'Archery', title: '6 arrows, crosswind', topSpeed: 1, scored: true,
+    note: 'Archery: aim against a gusty crosswind, then release; scored in points, so higher is better. There is no real bow: the arrows land where the recorded run says.',
+    controllers: [
+      { id: 'trained', name: 'Trained fly', note: 'MANC circuit, evolution-trained' },
+      UNTRAINED,
+      { id: 'rule', name: 'Rule', note: 'Aims off the wind, releases when drawn' },
+      { id: 'random', name: 'Random', note: 'Seeded random actions' },
+    ],
+  },
 };
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -100,9 +120,19 @@ scene.add(pad);
 // Hurdles: tape-white bars half a body length tall, placed from the recorded course.
 const hurdleMaterial = new THREE.MeshStandardMaterial({ color: 0xf1efe6, roughness: 0.7, transparent: true });
 const hurdleInk = new THREE.MeshStandardMaterial({ color: 0x151513, roughness: 0.7, transparent: true });
-function makeHurdle() {
+const waterTape = new THREE.MeshStandardMaterial({ color: 0x5b93d6, roughness: 0.6, transparent: true });
+const pitMaterial = new THREE.MeshStandardMaterial({ color: 0x7fb2c9, roughness: 0.15, metalness: 0.05 });
+function makeHurdle(pitLength = 0) {
   const h = 0.5 * BODY_LENGTH_MM, w = 2.6, group = new THREE.Group();
-  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, w), hurdleMaterial);
+  if (pitLength) {
+    // Steeplechase water jump: the pit starts right behind the barrier.
+    const pit = new THREE.Mesh(new THREE.PlaneGeometry(pitLength * BODY_LENGTH_MM, w), pitMaterial);
+    pit.rotation.x = -Math.PI / 2; pit.position.set(pitLength * BODY_LENGTH_MM / 2, 0.012, 0);
+    pit.userData.length = pitLength * BODY_LENGTH_MM;
+    group.userData.pit = pit;
+    group.add(pit);
+  }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, w), pitLength ? waterTape : hurdleMaterial);
   bar.position.y = h - 0.11;
   for (const z of [-w / 2, w / 2]) {
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, h, 0.09), hurdleInk);
@@ -119,6 +149,50 @@ scene.add(hurdleGroup);
 const wallMarker = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 2 * PAD_RADIUS * 0.9), hurdleInk);
 wallMarker.position.y = 0.01;
 scene.add(wallMarker);
+
+// Archery: a ring target at the far side of the pad. Landings are horizontal offsets in
+// target units (one ring = ring_width); TARGET_SCALE turns them into millimetres on the face.
+const TARGET_X = 3.3, TARGET_Y = 1.7, TARGET_RADIUS = 1.15;
+let TARGET_SCALE = 1;
+function ringTexture(rings) {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d'), colours = ['#f1efe6', '#151513', '#5b93d6', '#e8628f', '#e6c63b'];
+  for (let i = 0; i < rings; i++) {
+    g.beginPath(); g.arc(256, 256, 256 * (1 - i / rings), 0, Math.PI * 2);
+    g.fillStyle = colours[Math.floor(i / 2) % colours.length]; g.fill();
+    g.strokeStyle = 'rgba(21,21,19,.6)'; g.lineWidth = 2; g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const target = new THREE.Group();
+const targetFace = new THREE.Mesh(new THREE.CircleGeometry(TARGET_RADIUS, 64), new THREE.MeshStandardMaterial({ roughness: 0.8 }));
+targetFace.rotation.y = -Math.PI / 2;  // faces the fly, which looks along +x
+const targetBack = new THREE.Mesh(new THREE.CylinderGeometry(TARGET_RADIUS * 1.04, TARGET_RADIUS * 1.04, 0.12, 64), padSide);
+targetBack.rotation.z = Math.PI / 2; targetBack.position.x = 0.07;
+const targetLeg = new THREE.Mesh(new THREE.BoxGeometry(0.1, TARGET_Y, 0.1), hurdleInk);
+targetLeg.position.set(0.12, -TARGET_Y / 2, 0);
+target.add(targetFace, targetBack, targetLeg);
+target.position.set(TARGET_X, TARGET_Y, 0);
+target.rotation.y = 1.2;  // turned partly toward the viewer so the rings and hits read
+target.traverse(o => { o.castShadow = true; });
+const hits = new THREE.Group(); target.add(hits);
+const aimDot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), new THREE.MeshStandardMaterial({ color: 0xe8628f, emissive: 0x5a1f33 }));
+target.add(aimDot);
+scene.add(target);
+function placeArrows(landings, aim) {
+  while (hits.children.length < landings.length) {
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.9, 8), hurdleInk);
+    shaft.rotation.z = Math.PI / 2; shaft.castShadow = true;
+    hits.add(shaft);
+  }
+  hits.children.forEach((arrow, i) => {
+    const landing = landings[i];
+    arrow.visible = i < landings.length && landing != null;
+    if (arrow.visible) arrow.position.set(-0.45, 0, -landing * TARGET_SCALE);
+  });
+  aimDot.position.set(-0.04, 0, -aim * TARGET_SCALE);
+}
 
 function setAction(text, state) {
   $('action').textContent = text;
@@ -149,7 +223,8 @@ function frameThePad() {
   // Hurdles need headroom for a full jump (up to one body length, 2.5 mm).
   // Human style stands upright (about one body length tall) and jumps from that height.
   const upright = style === 'human' && eventId !== 'swimming' ? BODY_LENGTH_MM * 0.8 : 0;
-  const headroom = (eventId === 'hurdles' ? BODY_LENGTH_MM : 0) + upright;
+  const jumping = eventId === 'hurdles' || eventId === 'steeplechase';
+  const headroom = (jumping ? BODY_LENGTH_MM : 0) + upright;
   controls.target.y = 0.5 + headroom * 0.5;
   const halfV = THREE.MathUtils.degToRad(camera.fov / 2);
   const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
@@ -240,17 +315,32 @@ function selectEvent(id) {
   pad.material[1] = id === 'swimming' ? waterTop : padTop;
   hurdleGroup.clear();
   if (id === 'hurdles') hurdleGroup.add(...data.hurdles.map(() => makeHurdle()));
+  if (id === 'steeplechase') hurdleGroup.add(...data.hurdles.map((_, i) => makeHurdle(data.water.includes(i) ? data.pit_length : 0)));
+  target.visible = id === 'archery';
+  if (id === 'archery') {
+    targetFace.material.map?.dispose();
+    targetFace.material.map = ringTexture(data.rings); targetFace.material.needsUpdate = true;
+    TARGET_SCALE = TARGET_RADIUS / (data.rings * data.ring_width);
+  }
+  const scored = EVENTS[id].scored;
+  $('distance-label').textContent = scored ? 'Points' : 'Distance';
+  $('distance-unit').textContent = scored ? `/ ${data.max_points}` : 'BL';
+  $('speed-label').textContent = scored ? 'Crosswind' : 'Speed';
+  $('speed-unit').textContent = scored ? '' : 'BL/s';
   wallMarker.visible = id === 'swimming';
   frameThePad();
   buildRuler(Math.ceil(Math.max(...Object.values(data.runs).map(run => run.at(-1).simulation_time))));
   buildRack();
-  selectRun(id === 'sprint' ? 'trained' : 'rule');
+  selectRun(['sprint', 'steeplechase', 'archery'].includes(id) ? 'trained' : 'rule');
 }
 
 // ---------- Rack of vials ----------
 const key = id => `${eventId}:${id}`;
+const goal = () => race.max_points ?? race.distance;
+const progressOf = record => EVENTS[eventId].scored ? record.total_points : record.position;
 function resultOf(id) {
   const last = race.runs[id].at(-1);
+  if (EVENTS[eventId].scored) return `${last.total_points} of ${race.max_points} points`;
   return last.position >= race.distance ? `Finished in ${last.simulation_time.toFixed(1)} s` : `Stopped at ${last.position.toFixed(1)} BL`;
 }
 
@@ -259,7 +349,7 @@ function buildRack() {
     const vial = document.createElement('button');
     vial.type = 'button'; vial.className = 'vial'; vial.dataset.id = id;
     vial.setAttribute('role', 'radio');
-    vial.innerHTML = `<span class="vial-tube"><span class="vial-food"></span><ol class="vial-grad">${[25, 50, 75].map(v => `<li style="bottom:${v}%"><b>${Math.round(race.distance * v / 100)}</b></li>`).join('')}</ol></span>
+    vial.innerHTML = `<span class="vial-tube"><span class="vial-food"></span><ol class="vial-grad">${[25, 50, 75].map(v => `<li style="bottom:${v}%"><b>${Math.round(goal() * v / 100)}</b></li>`).join('')}</ol></span>
       <span class="vial-label">${name}<small>${note}</small><small class="vial-result">Not watched yet</small></span>`;
     vial.onclick = () => selectRun(id);
     return vial;
@@ -270,12 +360,12 @@ function buildRack() {
 function updateRack() {
   for (const vial of $('rack').children) {
     const id = vial.dataset.id;
-    const shown = watched.get(key(id)) ?? 0;
-    const finished = shown > 0 && shown >= race.runs[id].at(-1).position - 1e-6;
-    const text = finished ? resultOf(id) : shown > 0 ? `${shown.toFixed(1)} BL so far` : 'Not watched yet';
+    const { progress: shown = 0, done = false } = watched.get(key(id)) ?? {};
+    const scored = EVENTS[eventId].scored;
+    const text = done ? resultOf(id) : watched.has(key(id)) ? (scored ? `${shown} points so far` : `${shown.toFixed(1)} BL so far`) : 'Not watched yet';
     const name = EVENTS[eventId].controllers.find(c => c.id === id).name;
     vial.setAttribute('aria-checked', String(id === selected));
-    vial.style.setProperty('--fill', String(Math.min(1, shown / race.distance)));
+    vial.style.setProperty('--fill', String(Math.min(1, shown / goal())));
     vial.querySelector('.vial-result').textContent = text;
     vial.setAttribute('aria-label', `${name}: ${text}`);
   }
@@ -317,13 +407,26 @@ function sample(at) {
   const i = Math.min(records.length - 1, Math.floor(at)), j = Math.min(records.length - 1, i + 1), f = at - i;
   const a = records[i], b = records[j];
   const mix = field => (a[field] ?? 0) + ((b[field] ?? 0) - (a[field] ?? 0)) * f;
-  return { position: mix('position'), velocity: mix('velocity'), height: mix('height'), time: mix('simulation_time'), action: a.action, airborne: Boolean(a.airborne) || mix('height') > 0 };
+  return { position: mix('position'), velocity: mix('velocity'), height: mix('height'), time: mix('simulation_time'), action: a.action, airborne: Boolean(a.airborne) || mix('height') > 0, record: a, i };
 }
 
 // Things on the course sit at (their position - the fly's) body lengths ahead, and fade out at the rim.
 function placeOnCourse(object, ahead) {
   const x = ahead * BODY_LENGTH_MM, edge = PAD_RADIUS * 0.82;
   object.position.x = x;
+  const pit = object.userData.pit;
+  if (pit) {
+    // Trim the water pit so it never hangs over the pad's rim.
+    const start = Math.max(x, -edge), end = Math.min(x + pit.userData.length, edge);
+    pit.visible = end > start;
+    if (pit.visible) {
+      pit.scale.x = (end - start) / pit.userData.length;
+      pit.position.x = (start + end) / 2 - x;
+    }
+    object.visible = pit.visible || Math.abs(x) < edge;
+    object.children.forEach(child => { if (child !== pit) child.visible = Math.abs(x) < edge; });
+    return;
+  }
   object.visible = Math.abs(x) < edge;
 }
 
@@ -337,13 +440,18 @@ function frame(now) {
   }
   const r = sample(index);
   if (records.length) {
-    if (index > 0) watched.set(key(selected), Math.max(watched.get(key(selected)) ?? 0, r.position));
+    if (index > 0) {
+      const before = watched.get(key(selected)) ?? { progress: 0, done: false };
+      watched.set(key(selected), { progress: Math.max(before.progress, progressOf(r.record) ?? 0), done: before.done || index >= records.length - 1 });
+    }
     if (now - lastRackUpdate > 100) { updateRack(); lastRackUpdate = now; }
     const seconds = Number($('ticks').dataset.seconds) || 1;
     $('ruler').style.setProperty('--progress', `${Math.min(100, (r.time / seconds) * 100)}%`);
     if (index > 0) setAction(r.action, r.action); else setAction('Ready', '');
   }
-  if (eventId === 'hurdles' && race) race.hurdles.forEach((h, i) => placeOnCourse(hurdleGroup.children[i], h - r.position));
+  if ((eventId === 'hurdles' || eventId === 'steeplechase') && race) race.hurdles.forEach((h, i) => placeOnCourse(hurdleGroup.children[i], h - r.position));
+  const archery = eventId === 'archery' && race && records.length;
+  if (archery) placeArrows(records.slice(0, r.i + 1).filter(x => x.shot).map(x => x.landing), r.record.aim_offset);
   if (eventId === 'swimming' && race) placeOnCourse(wallMarker, race.pool_length - r.position);
   const effort = Math.min(1, r.velocity / EVENTS[eventId].topSpeed);
   const human = style === 'human';
@@ -351,13 +459,14 @@ function frame(now) {
   fly.pose(r.position / stride, flying && !human ? 0 : Math.max(effort, r.velocity > 0.01 ? 0.25 : 0), reducedMotion ? 0 : wallTime, {
     event: eventId,
     airborne: r.airborne,
+    draw: archery ? r.record.draw : 0,
     lift: flying ? 1.6 + (reducedMotion ? 0 : 0.05 * Math.sin(wallTime * 3)) : r.height * BODY_LENGTH_MM,  // recorded jump height
   });
   porous.offset.x = ripples.offset.x = r.position;  // one tile per body length
   scaleBar.style.width = `${bodyLengthOnScreen().toFixed(1)}px`;
   $('time').textContent = r.time.toFixed(1);
-  $('distance').textContent = r.position.toFixed(1);
-  $('speed').textContent = r.velocity.toFixed(1);
+  $('distance').textContent = archery ? String(r.record.total_points) : r.position.toFixed(1);
+  $('speed').textContent = archery ? (r.record.wind + 0).toFixed(1).replace(/^-0\.0$/, '0.0') : r.velocity.toFixed(1);
   controls.update();
   renderer.render(scene, camera);
   requestAnimationFrame(frame);

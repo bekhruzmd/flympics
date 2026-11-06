@@ -61,7 +61,7 @@ To open the local website with the 3D fly:
 python -m experiments.serve_view
 ```
 
-Visit **http://localhost:8000**. Pick an event (Sprint, Hurdles or Swimming), then
+Visit **http://localhost:8000**. Pick an event (Sprint, Hurdles, Swimming, Steeplechase or Archery), then
 pull a vial to load a controller's run. Press Play (or 4x replay) and drag the tape
 ruler to scrub. Each vial fills with the distance its run has covered, so after
 watching all four the rack compares them side by side. The page replays actual
@@ -70,7 +70,8 @@ the NeuroMechFly micro-CT scan (FlyGym, Apache-2.0); its six-leg gait and wingbe
 are hand-made animation, not output of the circuit. Distances are read as
 1 sim metre = 1 body length (about 2.5 mm; see `docs/fly-speed-data.md`). Fly mode
 only changes the picture: flight is not part of the race physics. Real fruit flies
-cannot swim, so Swimming is a game model. Runs are computed when the server starts
+cannot swim, so Swimming is a game model. In Archery the vials fill with points instead of distance, and arrows land
+where the recorded run says; there is no bow physics in the browser. Runs are computed when the server starts
 (seed 7 by default; change with `--seed`). Stop with Ctrl+C.
 The server binds only to your own computer and requires no additional packages.
 

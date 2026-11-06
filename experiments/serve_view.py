@@ -5,7 +5,9 @@ from pathlib import Path
 import argparse
 import json
 
-from experiments import run_hurdles, run_swimming
+from experiments import run_archery, run_hurdles, run_steeplechase, run_swimming
+from events.archery import Archery
+from events.steeplechase import BARRIERS, WATER, Steeplechase
 from experiments.run_sprint import run
 from events.hurdles import Hurdles
 from events.swimming import Swimming
@@ -14,6 +16,8 @@ from brain.connectome import load_manc_front_leg_circuit
 
 HURDLES_CONTROLLERS = ('fly', 'rule', 'nocoast', 'random')
 SWIMMING_CONTROLLERS = ('fly', 'rule', 'full_strokes', 'random')
+ARCHERY_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
+STEEPLECHASE_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
 
 
 def viewer_payload(seed: int) -> dict:
@@ -42,6 +46,22 @@ def viewer_payload(seed: int) -> dict:
                 'dt': Swimming().dt,
                 'pool_length': Swimming().pool_length,
                 'runs': {name: run_swimming.run(name, seed) for name in SWIMMING_CONTROLLERS},
+            },
+            'steeplechase': {
+                'distance': Steeplechase().distance,
+                'dt': Steeplechase().dt,
+                'hurdles': list(BARRIERS),
+                'water': sorted(WATER),
+                'pit_length': Steeplechase().pit_length,
+                'runs': {name: run_steeplechase.run(name, seed) for name in STEEPLECHASE_CONTROLLERS},
+            },
+            'archery': {
+                'dt': Archery().dt,
+                'arrows': Archery().arrows,
+                'max_points': Archery().arrows * Archery().rings,
+                'ring_width': Archery().ring_width,
+                'rings': Archery().rings,
+                'runs': {name: run_archery.run(name, seed) for name in ARCHERY_CONTROLLERS},
             },
         },
     }

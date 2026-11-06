@@ -11,13 +11,12 @@
   <header class="masthead">
     <h1>Flympics<span id="event-title">100 body lengths</span></h1>
     <div class="events" id="events" role="radiogroup" aria-label="Event"></div>
-    </div>
     <div class="deck" aria-label="Animation">
       <div class="mode" role="radiogroup" aria-label="Animation style">
         <button class="tape-button" id="human-style" type="button" role="radio" aria-checked="true">Human style</button>
         <button class="tape-button" id="fly-style" type="button" role="radio" aria-checked="false">Fly legs</button>
       </div>
-      <div class="mode" role="radiogroup" aria-label="Locomotion">
+      <div class="mode" id="flight-modes" role="radiogroup" aria-label="Locomotion">
         <button class="tape-button" id="run-mode" type="button" role="radio" aria-checked="true">Run</button>
         <button class="tape-button" id="fly-mode" type="button" role="radio" aria-checked="false">Fly</button>
       </div>
@@ -25,8 +24,19 @@
     <p class="hint">Press <kbd>P</kbd> for presenter mode</p>
   </header>
 
-  <section class="pad-area" aria-label="The scanned fruit fly replaying the selected run">
-    <canvas id="scene"></canvas>
+  <section class="pad-area" id="pad" aria-label="Recorded arena replay">
+    <div class="arena-view">
+      <canvas id="scene"></canvas>
+      <p class="scale-bar" aria-hidden="true"><i></i><span>1 body length ≈ 2.5 mm</span></p>
+      <p class="cheat" id="cheat" hidden>Fly mode: cheat, picture only</p>
+      <p class="eye-tag" id="eye-tag" hidden></p>
+      <button class="presenter" id="presenter" type="button" hidden></button>
+      <p class="target-cam-label" id="target-cam" hidden>Target cam</p>
+      <p class="lane-tag" id="lane-main" hidden></p>
+      <p class="lane-tag lane-tag-rival" id="lane-rival" hidden></p>
+      <div id="race-tags" aria-hidden="true"></div>
+      <p class="photo-tape" id="photo-tape" hidden>Photo finish</p>
+    </div>
     <div class="hud" aria-label="Run readouts">
       <p class="tape tape-time"><span>Time</span><output id="time">0.0</output><small>s</small></p>
       <p class="tape"><span id="distance-label">Distance</span><output id="distance">0.0</output><small id="distance-unit">BL</small></p>
@@ -34,17 +44,20 @@
       <p class="tape tape-versus" id="versus-tape" hidden><span id="versus-label">Opponent</span><output id="versus">0</output><small>/ 60</small></p>
       <p class="tape tape-action" id="action-tape"><span>Action</span><output id="action">Loading runs</output></p>
     </div>
-    <p class="scale-bar" aria-hidden="true"><i></i><span>1 body length ≈ 2.5 mm</span></p>
-    <p class="cheat" id="cheat" hidden>Fly mode: cheat, picture only</p>
-    <p class="eye-tag" id="eye-tag" hidden></p>
-    <button class="presenter" id="presenter" type="button" hidden></button>
-    <p class="target-cam-label" id="target-cam" hidden>Target cam</p>
-    <p class="lane-tag" id="lane-main" hidden></p>
-    <p class="lane-tag lane-tag-rival" id="lane-rival" hidden></p>
   </section>
 
 
-  <aside class="brain-area" aria-label="What the fly's nervous system is doing">
+  <aside class="brain-area" aria-label="Standings and leg circuit readout">
+    <section class="race-sheet" id="race-sheet" aria-labelledby="race-sheet-title" hidden>
+      <h2 id="race-sheet-title">Live standings</h2>
+      <table>
+        <thead>
+          <tr><th scope="col">Place</th><th scope="col">Controller</th><th scope="col" id="race-measure">Distance</th></tr>
+        </thead>
+        <tbody id="race-rows"></tbody>
+      </table>
+      <p class="sr-only" id="race-announcement" role="status"></p>
+    </section>
     <section class="eye-panel" id="eye-panel" aria-labelledby="eye-title" hidden>
       <h2 id="eye-title">The eye</h2>
       <div class="eye-gauge" aria-hidden="true"><span>Wind from the left</span><i id="eye-needle"></i><span>from the right</span></div>
@@ -58,7 +71,7 @@
     <section class="circuit" aria-labelledby="circuit-title">
       <h2 id="circuit-title">The leg circuit</h2>
       <canvas id="circuit" role="img" aria-label="Modeled activity of the 135 MANC neurons, by role"></canvas>
-      <p class="circuit-note" id="circuit-note">135 MANC neurons, modeled activity 0 to 1</p>
+      <p class="circuit-note" id="circuit-note">135 MANC neurons. Bars show signed activity (−1 to 1). Dots show positive activity.</p>
     </section>
   </aside>
 
@@ -87,8 +100,8 @@
   </section>
 
   <footer class="fine-print">
-    <p><b>Real:</b> the 135-neuron front-leg circuit and its 2,770 connections (MANC v1.2.1), and the fly's body, scanned by micro-CT (NeuroMechFly, FlyGym, Apache-2.0).</p>
-    <p><b>Modeled:</b> the race and its physics, read as 1 sim metre = 1 body length; the six-leg gait and the wingbeat are hand-made animation, not output of the circuit. Flight is not in the race physics. <span id="style-note">Human style is a cartoon: flies don't run on two legs; the poses follow human joint angles.</span> <span id="event-note"></span></p>
+    <p><b>Real:</b> the wiring of the 135-neuron front-leg circuit (2,770 connections, MANC v1.2.1) and the fly's micro-CT body scan (NeuroMechFly, FlyGym, Apache-2.0).</p>
+    <p><b>Modeled:</b> circuit activity and event physics. One simulation metre represents one body length. Gaits and wingbeats are hand-animated. <span id="style-note">Human style is a cartoon: flies don't run on two legs; the poses follow human joint angles.</span> <span id="event-note"></span></p>
   </footer>
 </main>
 <script type="module" src="fly3d-page.js"></script>

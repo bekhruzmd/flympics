@@ -32,10 +32,9 @@ button { font: inherit; color: inherit; }
   min-height: 100vh;
   overflow-x: clip;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2.8fr) minmax(0, 1.15fr);
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(calc(var(--u) * 18.4), 1fr) minmax(0, 2.8fr) minmax(0, 1.15fr);
+  grid-template-rows: minmax(max-content, 1fr) auto auto auto;
   grid-template-areas:
-    "mast  pad   brain"
     "mast  pad   brain"
     "ruler ruler ruler"
     "rack  rack  rack"
@@ -160,6 +159,7 @@ h1 span {
 .ruler-ticks { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
 .ruler-ticks li { position: absolute; top: 0; height: 35%; border-left: 2px solid var(--ink); }
 .ruler-ticks li.major { height: 55%; }
+.ruler-ticks li:last-child b { left: auto; right: 4px; }
 .ruler-ticks li b { position: absolute; top: 105%; left: 4px; font: 700 calc(var(--u) * .85)/1 var(--face); font-variant-numeric: tabular-nums; }
 #timeline { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: ew-resize; }
 #timeline:disabled { cursor: default; }
@@ -214,7 +214,7 @@ h1 span {
 .fine-print b { color: var(--tape); }
 
 @media (min-width: 901px) {
-  .bench { height: 100svh; min-height: 640px; }
+  .bench { min-height: max(100svh, 640px); }
 }
 
 @media (max-width: 900px) {
@@ -258,7 +258,7 @@ h1 span {
 .rack-side { align-self: end; }
 .circuit { margin: 0; }
 .circuit h2 { margin: 0 0 calc(var(--u) * .4); font-size: calc(var(--u) * .95); font-weight: 800; font-stretch: 87%; text-transform: uppercase; }
-#circuit { display: block; width: 100%; height: min(calc(var(--u) * 9), 14vh); }
+#circuit { display: block; width: 100%; height: clamp(100px, calc(var(--u) * 7), 14vh); }
 .circuit-note { margin: calc(var(--u) * .3) 0 0; font-size: calc(var(--u) * .72); color: var(--muted); }
 
 /* What the eye reports, in Archery */
@@ -267,6 +267,7 @@ h1 span {
   background: var(--blue); color: var(--ink); font: 400 calc(var(--u) * 1)/1.1 var(--marker);
   transform: rotate(-2deg); box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
 }
+.eye-modes .tape-button { font-size: calc(var(--u) * .9); padding: .45em .65em; }
 .eye-modes { margin-top: calc(var(--u) * .6); flex-wrap: wrap; }
 .eye-modes .tape-button[aria-checked="true"] { background: var(--tape); outline: 2px solid var(--ink); outline-offset: -5px; }
 
@@ -302,3 +303,41 @@ h1 span {
   box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
 }
 .lane-tag-rival { background: var(--tape-shade); transform: translate(-50%, -100%) rotate(1.5deg); }
+
+/* Race replay: keep the action tapes outside the camera viewport. */
+[hidden] { display: none !important; }
+.arena-view { position: absolute; inset: 0; }
+.pad-area.is-race { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: calc(var(--u) * .55); }
+.is-race .arena-view { position: relative; min-height: 0; }
+.is-race .hud { position: static; max-width: none; }
+.is-race .lane-tag { font-size: clamp(11px, .8vw, 15px); transform: translate(-50%, -100%); }
+.is-race .lane-tag-rival { background: var(--tape-shade); }
+.photo-tape {
+  position: absolute; right: 0; top: 0; margin: 0; padding: .35em .7em;
+  background: var(--yellow); color: var(--ink); font: 400 calc(var(--u) * .95)/1 var(--marker);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45); transform: rotate(2deg);
+}
+
+.race-sheet {
+  --sheet-rule: #b9b5a6;
+  background: var(--tape); color: var(--ink); padding: .65em .75em .6em;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, .45);
+}
+.race-sheet h2 { margin: 0 0 .35em; font: 400 calc(var(--u) * 1.15)/1.2 var(--marker); }
+.race-sheet[data-results="true"] h2 { color: var(--amber-deep); }
+.race-sheet table { width: 100%; border-collapse: collapse; font-size: clamp(11px, .79em, 16px); line-height: 1.25; font-variant-numeric: tabular-nums; }
+.race-sheet th, .race-sheet td { padding: .32em .3em; border-top: 1px solid var(--sheet-rule); text-align: left; }
+.race-sheet thead th { color: #5a5a52; font-size: .78em; letter-spacing: .06em; text-transform: uppercase; }
+.race-sheet td:last-child, .race-sheet thead th:last-child { text-align: right; white-space: nowrap; }
+.race-sheet tbody th { font-weight: 700; }
+.race-sheet tr[data-main="true"] { background: var(--tape-shade); }
+.race-sheet .lane-number { display: block; font-size: .8em; color: #5a5a52; }
+.race-sheet .energy { display: flex; align-items: center; flex-wrap: wrap; gap: .2em .5em; color: #5a5a52; font-size: .8em; font-weight: 500; }
+.race-sheet meter { width: 4em; height: .75em; accent-color: var(--green); }
+
+@media (max-width: 900px) {
+  .bench:has(.is-race) { grid-template-areas: "mast" "pad" "ruler" "brain" "rack" "fine"; }
+  .pad-area.is-race { height: auto; grid-template-rows: clamp(240px, 62vw, 440px) auto; }
+  .rack { grid-auto-flow: initial; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); row-gap: 24px; }
+  .vial { width: min(100%, 62px); }
+}

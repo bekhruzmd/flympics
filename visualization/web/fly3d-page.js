@@ -58,12 +58,12 @@ const EVENTS = {
   },
   pacing: {
     label: '400 m', title: '400 body lengths, pace yourself', topSpeed: 1.25 / 0.10,
-    note: '400 m: a limited energy budget (100 units), so the fly has to pace itself. The threshold-trained fly cannot react to its energy and floors it (198 s, same as always-accelerate), losing to random (130 s); rule cruises at 3.3 BL/s (123 s).',
+    note: '400 m: every lane starts with a modeled energy budget of 100 units. The energy bars replay the recorded budget.',
     controllers: [
-      { id: 'trained', name: 'Trained fly', note: 'MANC circuit, threshold-trained (floors it, 198 s)' },
+      { id: 'trained', name: 'Trained fly', note: 'MANC circuit, fitted threshold' },
       UNTRAINED,
-      { id: 'rule', name: 'Rule', note: 'Paced cruise at 3.3 BL/s (123 s)' },
-      { id: 'random', name: 'Random', note: 'Seeded random actions (130 s)' },
+      { id: 'rule', name: 'Rule', note: 'Paced cruise at 3.3 BL/s' },
+      { id: 'random', name: 'Random', note: 'Seeded random actions' },
     ],
   },
 };
@@ -118,9 +118,9 @@ function noiseTexture(size, base, speck, count, alpha) {
   return t;
 }
 
-// Venues are built at full length, one body length (BL) = 2.5 mm, and the camera follows the
-// fly down them. x is distance along the course; the fly runs in the middle lane (z = 0).
-const BODY_LENGTH_MM = 2.5, LANE = 3.0, LANES = 5, HALF_WIDTH = (LANE * LANES) / 2;
+// x is distance along the course. The selected vial gets the middle lane (z = 0).
+const BODY_LENGTH_MM = 2.5, LANE = 3.0;
+let trackLaneCount = 5, halfTrackWidth = LANE * trackLaneCount / 2;
 const ripples = noiseTexture(256, '#5f9fbf', '225,242,255', 1400, 0.45);
 const trackGrain = noiseTexture(256, '#a9493a', '60,20,14', 3800, 0.22);
 const padSide = new THREE.MeshStandardMaterial({ color: 0xd9d5c6, roughness: 0.9 });
@@ -139,40 +139,44 @@ function strip(length, width, x, z, material, y = 0.004) {
 function buildTrack(lengthBL) {
   const length = lengthBL * BODY_LENGTH_MM, runOff = 30;
   const grain = trackGrain.clone(); grain.needsUpdate = true;
-  grain.repeat.set((length + 2 * runOff) / BODY_LENGTH_MM, (2 * HALF_WIDTH + 3) / BODY_LENGTH_MM);
-  strip(length + 2 * runOff, 2 * HALF_WIDTH + 3, length / 2, 0, new THREE.MeshStandardMaterial({ map: grain, roughness: 0.95 }), 0);
-  for (let i = 0; i <= LANES; i++) strip(length + 2 * runOff, 0.12, length / 2, -HALF_WIDTH + i * LANE, lineWhite);
-  strip(0.25, 2 * HALF_WIDTH, 0, 0, lineWhite);                 // start line
-  strip(0.6, 2 * HALF_WIDTH, length, 0, lineWhite);             // finish line
+  grain.repeat.set((length + 2 * runOff) / BODY_LENGTH_MM, (2 * halfTrackWidth + 3) / BODY_LENGTH_MM);
+  strip(length + 2 * runOff, 2 * halfTrackWidth + 3, length / 2, 0, new THREE.MeshStandardMaterial({ map: grain, roughness: 0.95 }), 0);
+  for (let i = 0; i <= trackLaneCount; i++) strip(length + 2 * runOff, 0.12, length / 2, -halfTrackWidth + i * LANE, lineWhite);
+  strip(0.25, 2 * halfTrackWidth, 0, 0, lineWhite);                 // start line
+  strip(0.6, 2 * halfTrackWidth, length, 0, lineWhite);             // finish line
   for (let m = 10; m < lengthBL; m += 10) {                      // a mark every 10 BL on both edges
-    for (const z of [-HALF_WIDTH - 0.6, HALF_WIDTH + 0.6]) strip(0.12, 0.8, m * BODY_LENGTH_MM, z, lineWhite);
+    for (const z of [-halfTrackWidth - 0.6, halfTrackWidth + 0.6]) strip(0.12, 0.8, m * BODY_LENGTH_MM, z, lineWhite);
   }
 }
 
 function buildPool(lengthBL) {
   const length = lengthBL * BODY_LENGTH_MM, deck = 4, wall = 0.9;
   const water = ripples.clone(); water.needsUpdate = true;
-  water.repeat.set(length / BODY_LENGTH_MM, (2 * HALF_WIDTH) / BODY_LENGTH_MM);
-  strip(length, 2 * HALF_WIDTH, length / 2, 0, new THREE.MeshStandardMaterial({ map: water, roughness: 0.12, metalness: 0.05 }), 0);
+  water.repeat.set(length / BODY_LENGTH_MM, (2 * halfTrackWidth) / BODY_LENGTH_MM);
+  strip(length, 2 * halfTrackWidth, length / 2, 0, new THREE.MeshStandardMaterial({ map: water, roughness: 0.12, metalness: 0.05 }), 0);
   const tile = new THREE.MeshStandardMaterial({ color: 0xe9e6dc, roughness: 0.85 });
   const box = (w, d, x, z) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, wall, d), tile);
     mesh.position.set(x, wall / 2 - 0.35, z); mesh.receiveShadow = true; venue.add(mesh);
   };
-  box(deck, 2 * HALF_WIDTH + 2 * deck, -deck / 2, 0);              // start wall
-  box(deck, 2 * HALF_WIDTH + 2 * deck, length + deck / 2, 0);      // turn wall
-  box(length, deck, length / 2, -HALF_WIDTH - deck / 2);
-  box(length, deck, length / 2, HALF_WIDTH + deck / 2);
+  box(deck, 2 * halfTrackWidth + 2 * deck, -deck / 2, 0);              // start wall
+  box(deck, 2 * halfTrackWidth + 2 * deck, length + deck / 2, 0);      // turn wall
+  box(length, deck, length / 2, -halfTrackWidth - deck / 2);
+  box(length, deck, length / 2, halfTrackWidth + deck / 2);
   // Lane ropes: floats in alternating colours between the lanes.
   const floats = [new THREE.MeshStandardMaterial({ color: 0xe8628f }), new THREE.MeshStandardMaterial({ color: 0xf1efe6 }), new THREE.MeshStandardMaterial({ color: 0x5b93d6 })];
   const bead = new THREE.SphereGeometry(0.16, 10, 8);
-  for (let i = 1; i < LANES; i++) {
-    const z = -HALF_WIDTH + i * LANE;
-    for (let x = 0.4, k = 0; x < length; x += 0.4, k++) {
-      const mesh = new THREE.Mesh(bead, floats[(Math.floor(k / 6)) % floats.length]);
-      mesh.position.set(x, 0.06, z); venue.add(mesh);
-    }
+  const beads = Array.from({ length: floats.length }, () => []);
+  for (let i = 1; i < trackLaneCount; i++) {
+    const z = -halfTrackWidth + i * LANE;
+    for (let x = 0.4, k = 0; x < length; x += 0.4, k++) beads[Math.floor(k / 6) % floats.length].push([x, z]);
   }
+  const transform = new THREE.Matrix4();
+  beads.forEach((positions, i) => {
+    const rope = new THREE.InstancedMesh(bead, floats[i], positions.length);
+    positions.forEach(([x, z], k) => rope.setMatrixAt(k, transform.makeTranslation(x, 0.06, z)));
+    venue.add(rope);
+  });
 }
 
 function buildRange() {
@@ -207,6 +211,20 @@ function makeHurdle(pitLength = 0, w = LANE * 0.85) {
   group.traverse(o => { o.castShadow = true; });
   return group;
 }
+function clearVenue() {
+  const sharedMaterials = new Set([lineWhite, hurdleMaterial, hurdleInk, waterTape, pitMaterial]);
+  const geometries = new Set(), materials = new Set();
+  venue.traverse(object => {
+    if (object.isInstancedMesh) object.dispose();
+    if (!object.isMesh) return;
+    geometries.add(object.geometry);
+    if (!sharedMaterials.has(object.material)) materials.add(object.material);
+  });
+  venue.clear();
+  geometries.forEach(geometry => geometry.dispose());
+  materials.forEach(material => { material.map?.dispose(); material.dispose(); });
+}
+
 // Archery: a ring target down the range. Landings are horizontal offsets in
 // target units (one ring = ring_width); TARGET_SCALE turns them into millimetres on the face.
 const TARGET_X = 16, TARGET_Y = 1.9, TARGET_RADIUS = 1.6;
@@ -339,38 +357,56 @@ function resize() {
   frameThePad();
 }
 
-// The camera keeps a fixed view of the area around the fly and slides along with it; dragging
-// still orbits. Jumping events and the upright Human style get extra headroom.
-const VIEW_DIRECTION = new THREE.Vector3(6.4, 5.1, 8.0).normalize();
-const VIEW_RADIUS = 7;
+// Event camera presets. Orbit remains available during replay.
+const RACE_SHOTS = {
+  sprint: { direction: [0.40, 0.42, 1], span: 10, height: 1.5 },
+  pacing: { direction: [-1, 0.62, 0.48], span: 13, height: 1.7 },
+  hurdles: { direction: [0.52, 0.04, 1], span: 10, height: 1.15 },
+  steeplechase: { direction: [0.40, 1.05, 0.84], span: 18, height: 1.2 },
+  swimming: { direction: [0, 1, 0.002], span: 13, height: 0 },
+};
+const PHOTO_SHOT = { direction: [0, 0.35, 1], span: 9, height: 1.1 };
+let payload = null, eventId = 'sprint', race = null, selected = 'rule', style = 'human';
+let records = [], index = 0, playing = false, flying = false, rate = 1;
+let raceLanes = [], replayEnd = 0, firstFinish = -1, photoUntil = 0;
+let leader = null, cameraX = 0, photoShown = false, snapCamera = true, sheetStep = -1;
+const reserveFlies = [];
+
+function cameraLane() {
+  // The high shot keeps the main lane's barriers and water jumps in view.
+  return eventId === 'steeplechase' ? holder : leader?.holder ?? holder;
+}
+
+function focusX() {
+  if (eventId === 'archery') return TARGET_X * 0.5;
+  if (photoShown) return race.distance * BODY_LENGTH_MM;
+  return cameraLane().position.x;
+}
+
 function frameThePad() {
-  const upright = style === 'human' && eventId !== 'swimming' ? BODY_LENGTH_MM * 0.8 : 0;
-  const jumping = eventId === 'hurdles' || eventId === 'steeplechase';
-  const headroom = (jumping ? BODY_LENGTH_MM : 0) + upright;
   if (eventId === 'archery') {
     // Over the archer's shoulder, looking down the range at both targets.
     controls.target.set(focusX(), 1.4, -2.6);
     camera.position.set(-7.5, 4.6, 4.2);
     return;
   }
-  const radius = VIEW_RADIUS;
-  controls.target.set(focusX(), 0.5 + headroom * 0.5, 0);
-  const halfV = THREE.MathUtils.degToRad(camera.fov / 2);
-  const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
-  const distance = Math.max(radius / Math.tan(halfH), (radius * 0.5 + 1.1 + headroom * 0.75) / Math.tan(halfV));
-  camera.position.copy(VIEW_DIRECTION).multiplyScalar(distance).add(controls.target);
+  const { direction, span, height } = photoShown ? PHOTO_SHOT : RACE_SHOTS[eventId];
+  const laneOffsets = raceLanes.map(lane => lane.holder.position.z);
+  const centreZ = laneOffsets.length ? (Math.min(...laneOffsets) + Math.max(...laneOffsets)) / 2 : 0;
+  cameraX = focusX();
+  controls.target.set(cameraX, height, centreZ);
+  const halfV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const halfSpan = Math.max(span, laneOffsets.length * LANE * 0.65);
+  const distance = Math.max(halfSpan / (halfV * camera.aspect), (halfSpan * 0.58 + 1.5) / halfV);
+  camera.position.set(...direction).normalize().multiplyScalar(distance).add(controls.target);
 }
-const focusX = () => eventId === 'archery' ? TARGET_X * 0.5 : holder.position.x;
-let payload = null, eventId = 'sprint', race = null, selected = 'rule', style = 'human';
 new ResizeObserver(resize).observe(canvas);
 resize();
 
-// ---------- State ----------
-let records = [], index = 0, playing = false, flying = false, rate = 1;
 const watched = new Map();  // `${event}:${controller}` -> furthest distance shown, kept as a record
 
 function setMode(flyMode) {
-  flying = flyMode;
+  flying = flyMode && eventId === 'archery';
   fly.setFlying(flying);
   $('run-mode').setAttribute('aria-checked', String(!flying));
   $('fly-mode').setAttribute('aria-checked', String(flying));
@@ -396,18 +432,25 @@ function setPlaying(value) {
   playing = value;
   $('play').dataset.playing = String(playing);
   $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
-  $('play-label').textContent = playing ? 'Pause' : records.length && index >= records.length - 1 ? 'Replay' : 'Play';
+  $('play-label').textContent = playing ? 'Pause' : records.length && index >= replayEnd ? 'Replay' : 'Play';
 }
 $('play').onclick = () => {
   if (!records.length) return;
-  if (!playing && index >= records.length - 1) index = 0;
+  if (!playing && index >= replayEnd) {
+    index = 0; photoUntil = 0; snapCamera = true;
+    $('timeline').value = '0';
+  }
   setPlaying(!playing);
 };
 $('fast').onclick = () => {
-  rate = rate === 1 ? 4 : 1;
+  rate = rate === 4 ? 1 : 4;
   $('fast').setAttribute('aria-pressed', String(rate === 4));
 };
-$('timeline').oninput = event => { index = Number(event.target.value); setPlaying(false); };
+$('timeline').oninput = event => {
+  index = Number(event.target.value);
+  photoUntil = 0; snapCamera = true;
+  setPlaying(false);
+};
 
 for (const button of $('eye-modes').children) {
   button.onclick = () => {
@@ -420,7 +463,7 @@ for (const button of $('eye-modes').children) {
 addEventListener('keydown', event => {
   if (event.target.closest?.('input, select, textarea')) return;
   if (event.code === 'Space') { event.preventDefault(); $('play').click(); }
-  else if (event.key >= '1' && event.key <= '5') selectRun(EVENTS[eventId].controllers[Number(event.key) - 1]?.id);
+  else if (event.key >= '1' && event.key <= '9') selectRun(controllers()[Number(event.key) - 1]?.id);
   else if (event.key === 'f') setMode(!flying);
   else if (event.key === 'p' || event.key === 'P') togglePresenter();
   else if (presenting && event.key === 'ArrowRight') presenterStep(step + 1);
@@ -453,20 +496,24 @@ function selectEvent(id) {
   for (const tab of $('events').children) tab.setAttribute('aria-checked', String(tab.dataset.id === id));
   $('event-title').textContent = EVENTS[id].title;
   $('event-note').textContent = EVENTS[id].note;
-  venue.clear();
+  $('pad').classList.toggle('is-race', id !== 'archery');
+  $('flight-modes').hidden = id !== 'archery';
+  $('rack-title').textContent = id === 'archery' ? 'Pull a vial to load its run' : 'Pull a vial to choose the main lane';
+  if (id !== 'archery') setMode(false);
+  clearVenue();
   if (id === 'swimming') buildPool(data.pool_length);
   else if (id === 'archery') buildRange();
   else buildTrack(data.distance);
   if (id === 'hurdles') {
     // Hurdles in every lane, at the recorded course positions.
-    for (const h of data.hurdles) for (let lane = 0; lane < LANES; lane++) {
-      const hurdle = makeHurdle(); hurdle.position.set(h * BODY_LENGTH_MM, 0, -HALF_WIDTH + (lane + 0.5) * LANE); venue.add(hurdle);
+    for (const h of data.hurdles) for (let lane = 0; lane < trackLaneCount; lane++) {
+      const hurdle = makeHurdle(); hurdle.position.set(h * BODY_LENGTH_MM, 0, -halfTrackWidth + (lane + 0.5) * LANE); venue.add(hurdle);
     }
   }
   if (id === 'steeplechase') {
     // Steeplechase barriers span the track; water jumps have the pit right behind.
     data.hurdles.forEach((h, i) => {
-      const barrier = makeHurdle(data.water.includes(i) ? data.pit_length : 0, 2 * HALF_WIDTH);
+      const barrier = makeHurdle(data.water.includes(i) ? data.pit_length : 0, 2 * halfTrackWidth);
       barrier.position.x = h * BODY_LENGTH_MM; venue.add(barrier);
     });
   }
@@ -490,34 +537,45 @@ function selectEvent(id) {
   $('distance-unit').textContent = scored ? `/ ${data.max_points}` : 'BL';
   $('speed-label').textContent = scored ? 'Crosswind' : 'Speed';
   $('speed-unit').textContent = scored ? '' : 'BL/s';
-  frameThePad();
-  buildRuler(Math.ceil(Math.max(...Object.values(data.runs).map(run => run.at(-1).simulation_time))));
   buildRack();
-  selectRun(id === 'archery' ? 'eye' : ['sprint', 'steeplechase', 'pacing'].includes(id) ? 'trained' : 'rule');
-  index = 0; placeFly(0);
-  frameThePad();
+  const preferred = id === 'archery' ? 'eye' : ['sprint', 'steeplechase', 'pacing'].includes(id) ? 'trained' : 'rule';
+  selectRun(data.runs[runId(preferred)]?.length ? preferred : controllers()[0]?.id);
 }
 
 // ---------- Rack of vials ----------
 // The "Sees the wind" vial plays one of three recorded runs: eye open, blindfolded or swapped.
 let eyeMode = 'eye';
-const runId = id => (id === 'eye' ? eyeMode : id);
+const runId = id => (eventId === 'archery' && id === 'eye' ? eyeMode : id);
 const key = id => `${eventId}:${runId(id)}`;
 const goal = () => race.max_points ?? race.distance;
 const progressOf = record => EVENTS[eventId].scored ? record.total_points : record.position;
 function resultOf(id) {
   const last = race.runs[runId(id)].at(-1);
   if (EVENTS[eventId].scored) return `${last.total_points} of ${race.max_points} points`;
-  return last.position >= race.distance ? `Finished in ${last.simulation_time.toFixed(1)} s` : `Stopped at ${last.position.toFixed(1)} BL`;
+  return last.position >= race.distance ? `Finished in ${formatTime(last.simulation_time)} s` : `DNF · ${last.position.toFixed(1)} BL`;
+}
+
+function controllers() {
+  const known = EVENTS[eventId].controllers;
+  if (!race) return [];
+  const entries = known.filter(({ id }) => race.runs[runId(id)]?.length);
+  if (eventId !== 'archery') {
+    for (const [id, run] of Object.entries(race.runs)) {
+      if (run.length && !entries.some(c => c.id === id)) entries.push({ id, name: id, note: 'Recorded controller' });
+    }
+  }
+  return entries;
 }
 
 function buildRack() {
-  $('rack').replaceChildren(...EVENTS[eventId].controllers.filter(({ id }) => race.runs[runId(id)]).map(({ id, name, note }) => {
+  $('rack').replaceChildren(...controllers().map(({ id, name, note }) => {
     const vial = document.createElement('button');
     vial.type = 'button'; vial.className = 'vial'; vial.dataset.id = id;
     vial.setAttribute('role', 'radio');
     vial.innerHTML = `<span class="vial-tube"><span class="vial-food"></span><ol class="vial-grad">${[25, 50, 75].map(v => `<li style="bottom:${v}%"><b>${Math.round(goal() * v / 100)}</b></li>`).join('')}</ol></span>
-      <span class="vial-label">${name}<small>${note}</small><small class="vial-result">Not watched yet</small></span>`;
+      <span class="vial-label"><span></span><small></small><small class="vial-result">Not watched yet</small></span>`;
+    vial.querySelector('.vial-label span').textContent = name;
+    vial.querySelector('.vial-label small').textContent = note;
     vial.onclick = () => selectRun(id);
     return vial;
   }));
@@ -530,7 +588,7 @@ function updateRack() {
     const { progress: shown = 0, done = false } = watched.get(key(id)) ?? {};
     const scored = EVENTS[eventId].scored;
     const text = done ? resultOf(id) : watched.has(key(id)) ? (scored ? `${shown} points so far` : `${shown.toFixed(1)} BL so far`) : 'Not watched yet';
-    const name = EVENTS[eventId].controllers.find(c => c.id === id).name;
+    const name = vial.querySelector('.vial-label span').textContent;
     vial.setAttribute('aria-checked', String(id === selected));
     vial.style.setProperty('--fill', String(Math.min(1, shown / goal())));
     vial.querySelector('.vial-result').textContent = text;
@@ -548,16 +606,33 @@ function buildRuler(seconds) {
   $('ticks').dataset.seconds = String(seconds);
 }
 
+function syncTimeline() {
+  const runs = eventId === 'archery'
+    ? [records, race.runs[runId(rivalId)] ?? []]
+    : raceLanes.map(lane => lane.run);
+  replayEnd = Math.max(...runs.map(run => run.length)) - 1;
+  index = Math.min(index, replayEnd);
+  $('timeline').max = String(replayEnd);
+  $('timeline').value = String(Math.floor(index));
+  buildRuler(Math.ceil(Math.max(...runs.map(run => run.at(-1)?.simulation_time ?? 0))));
+}
+
 function selectRun(id) {
-  if (!race?.runs[runId(id)]) return;
+  if (!race?.runs[runId(id)]?.length) return;
   selected = id; records = race.runs[runId(id)]; index = 0;
+  photoUntil = 0; photoShown = false; snapCamera = true;
+  $('photo-tape').hidden = true;
   $('eye-modes').hidden = !(eventId === 'archery' && id === 'eye');
-  if (eventId === 'archery') { fillRivalOptions(); lanes.main.flights = []; lanes.main.shown = 0; lanes.rival.flights = []; lanes.rival.shown = 0; }
+  if (eventId === 'archery') {
+    fillRivalOptions();
+    for (const lane of Object.values(lanes)) { lane.flights = []; lane.shown = 0; }
+  }
+  buildRaceLanes();
+  syncTimeline();
   setPlaying(false);
-  $('timeline').max = String(records.length - 1);
-  $('timeline').value = '0';
   $('timeline').disabled = false;
   $('play').disabled = false;
+  frameThePad();
   updateRack();
 }
 
@@ -571,32 +646,17 @@ function bodyLengthOnScreen() {
 }
 
 // ---------- Playback ----------
-function sample(at) {
-  if (!records.length) return { position: 0, velocity: 0, action: '', height: 0, time: 0, airborne: false };
-  const i = Math.min(records.length - 1, Math.floor(at)), j = Math.min(records.length - 1, i + 1), f = at - i;
-  const a = records[i], b = records[j];
-  const mix = field => (a[field] ?? 0) + ((b[field] ?? 0) - (a[field] ?? 0)) * f;
-  return { position: mix('position'), velocity: mix('velocity'), height: mix('height'), time: mix('simulation_time'), action: a.action, airborne: Boolean(a.airborne) || mix('height') > 0, record: a, i };
-}
-
-// Where the fly is on the course. In the pool, the second length comes back the other way.
-function placeFly(position) {
-  let x = position * BODY_LENGTH_MM, heading = 0;
-  if (eventId === 'swimming' && race && position > race.pool_length) {
-    x = (2 * race.pool_length - position) * BODY_LENGTH_MM; heading = Math.PI;
-  }
-  if (eventId === 'archery') x = 0;
-  holder.position.x = x;
-  holder.rotation.y = heading;
-}
-
-// Slide the camera and the lights with the fly, keeping whatever angle the viewer orbited to.
-function follow() {
-  const dx = focusX() - controls.target.x;
+function follow(dt) {
+  const goalX = focusX();
+  const amount = snapCamera || reducedMotion || !playing ? 1 : Math.min(1, dt * 14);
+  cameraX += (goalX - cameraX) * amount;
+  const dx = cameraX - controls.target.x;
   controls.target.x += dx; camera.position.x += dx;
-  ring.position.set(holder.position.x + 0.6, 11, 2.2);
-  ring.target.position.set(holder.position.x, 0, 0);
-  flyPoint.set(holder.position.x, 0.6, 0);
+  snapCamera = false;
+  const lit = cameraLane();
+  ring.position.set(lit.position.x + 0.6, 11, lit.position.z + 2.2);
+  ring.target.position.set(lit.position.x, 0, lit.position.z);
+  flyPoint.copy(lit.position).add(new THREE.Vector3(0, 0.6, 0));
 }
 
 // ---------- The eye tag (Archery, "Sees the wind") ----------
@@ -660,18 +720,22 @@ function drawCircuit(record) {
   const ext = mean(columns[2]), flex = mean(columns[3]);
   [['Extensor', ext], ['Flexor', flex]].forEach(([label, value], k) => {
     const y = bottom + 6 + k * (barHeight / 2);
-    g.fillStyle = '#2b2e29'; g.fillRect(70, y + 2, width - 74, barHeight / 2 - 4);
-    g.fillStyle = '#f1efe6'; g.fillRect(70, y + 2, (width - 74) * value, barHeight / 2 - 4);
+    const readout = `${label} ${value.toFixed(2)}`;
+    const left = Math.max(g.measureText('Extensor -0.00').width + 8, 66);
+    const half = Math.max(0, width - left - 4) / 2;
+    g.fillStyle = '#2b2e29'; g.fillRect(left, y + 2, half * 2, barHeight / 2 - 4);
+    g.fillStyle = value < 0 ? '#5b93d6' : '#f1efe6';
+    g.fillRect(left + half, y + 2, half * value, barHeight / 2 - 4);
     g.fillStyle = '#a6a89d'; g.textAlign = 'left'; g.textBaseline = 'middle';
-    g.fillText(`${label} ${value.toFixed(2)}`, 0, y + barHeight / 4);
+    g.fillText(readout, 0, y + barHeight / 4);
   });
 }
 function updateCircuitNote(record) {
   const isBrain = Boolean(record?.neuron_activity);
-  const controller = EVENTS[eventId].controllers.find(c => c.id === selected);
+  const name = raceLanes[0]?.name ?? EVENTS[eventId].controllers.find(c => c.id === selected)?.name;
   $('circuit-note').textContent = isBrain
-    ? '135 MANC neurons, modeled activity 0 to 1'
-    : `${controller?.name ?? 'This controller'} is a hand-written baseline: no circuit involved`;
+    ? '135 MANC neurons. Bars show signed activity (−1 to 1). Dots show positive activity.'
+    : `${name ?? 'This controller'} is a hand-written baseline: no circuit involved`;
 }
 
 // ---------- Presenter mode: one key steps through the story ----------
@@ -709,7 +773,12 @@ function fillRivalOptions() {
   if (!choices.some(c => c.id === rivalId)) rivalId = choices.find(c => c.id === 'fly')?.id ?? choices[0]?.id;
   $('rival').replaceChildren(...choices.map(c => new Option(c.name, c.id, false, c.id === rivalId)));
 }
-$('rival').onchange = event => { rivalId = event.target.value; lanes.rival.flights = []; lanes.rival.shown = 0; };
+$('rival').onchange = event => {
+  rivalId = event.target.value; lanes.rival.flights = []; lanes.rival.shown = 0;
+  sheetStep = -1;
+  syncTimeline();
+  if (index >= replayEnd) setPlaying(false);
+};
 const targetCam = new THREE.PerspectiveCamera(22, 1, 0.1, 100);
 function renderTargetCam() {
   const width = canvas.clientWidth, height = canvas.clientHeight;
@@ -736,67 +805,302 @@ function renderTargetCam() {
   label.style.width = `${size}px`; label.style.left = `${x}px`; label.style.bottom = `${y + size + 4}px`;
 }
 
+// ---------- Race lanes and results ----------
+const formatTime = time => time.toFixed(race.dt < 0.1 ? 2 : 1);
+const finished = record => record.position >= race.distance;
+const ordinal = place => {
+  const teens = place % 100 >= 11 && place % 100 <= 13;
+  return `${place}${teens ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[place % 10] ?? 'th')}`;
+};
+
+function makeSplash() {
+  const count = 18;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+  const spray = new THREE.Points(geometry, new THREE.PointsMaterial({
+    color: 0xd6efff, size: 0.17, transparent: true, depthWrite: false,
+  }));
+  spray.frustumCulled = false;
+  const ripple = new THREE.Mesh(new THREE.RingGeometry(0.88, 1, 32), new THREE.MeshBasicMaterial({
+    color: 0xd6efff, transparent: true, depthWrite: false,
+  }));
+  ripple.rotation.x = -Math.PI / 2;
+  ripple.position.y = 0.03;
+  const group = new THREE.Group();
+  group.add(ripple, spray);
+  group.visible = false;
+  scene.add(group);
+  return { group, ripple, spray };
+}
+
+function paintSplash(lane, step) {
+  const { group, ripple, spray } = lane.splash;
+  const impact = lane.impacts.findLast(({ frame }) => frame <= step);
+  const age = impact ? (step - impact.frame) * race.dt : Infinity;
+  group.visible = age < 0.65;
+  if (!group.visible) return;
+  const u = age / 0.65;
+  group.position.set(impact.position * BODY_LENGTH_MM, 0, lane.holder.position.z);
+  ripple.scale.setScalar(0.35 + 1.05 * u);
+  ripple.material.opacity = 0.85 * (1 - u);
+  spray.visible = !reducedMotion;
+  spray.material.opacity = 1 - u;
+  const points = spray.geometry.attributes.position;
+  for (let i = 0; i < points.count; i++) {
+    const angle = i * 2.39996;
+    const radius = (0.28 + (i % 5) * 0.21) * u;
+    points.setXYZ(i, Math.cos(angle) * radius, 0.12 + (0.8 + (i % 4) * 0.3) * Math.sin(Math.PI * u), Math.sin(angle) * radius);
+  }
+  points.needsUpdate = true;
+}
+
+function buildRaceLanes() {
+  raceLanes = []; leader = null; firstFinish = -1; sheetStep = -1;
+  $('race-tags').replaceChildren();
+  $('race-sheet').hidden = true;
+  $('race-announcement').textContent = '';
+  holder.position.set(0, 0, 0); holder.rotation.y = 0;
+  for (const slot of reserveFlies) {
+    slot.holder.visible = false;
+    if (slot.splash) slot.splash.group.visible = false;
+  }
+  if (mainSlot.splash) mainSlot.splash.group.visible = false;
+  if (eventId === 'archery') return;
+  const lineup = controllers();
+  const main = lineup.find(c => c.id === selected);
+  const finishSteps = [];
+  for (const [i, controller] of [main, ...lineup.filter(c => c !== main)].entries()) {
+    const { id, name } = controller;
+    const slot = i === 0 ? mainSlot : reserveFlies[i - 1];
+    const offset = (i % 2 ? -1 : 1) * Math.ceil(i / 2);
+    slot.holder.position.z = offset * LANE;
+    slot.holder.visible = true;
+    const tag = document.createElement('p');
+    tag.className = `lane-tag${i ? ' lane-tag-rival' : ''}`;
+    tag.textContent = name;
+    tag.hidden = true;
+    $('race-tags').append(tag);
+    const run = race.runs[id];
+    if (finished(run.at(-1))) finishSteps.push(run.length - 1);
+    const impacts = [];
+    if (eventId === 'steeplechase') {
+      slot.splash ??= makeSplash();
+      run.forEach((record, frame) => {
+        if (record.splashes > (run[frame - 1]?.splashes ?? 0)) impacts.push({ frame, position: record.position });
+      });
+    }
+    raceLanes.push({ ...slot, id, name, tag, run, impacts, lane: (trackLaneCount + 1) / 2 + offset, record: null });
+  }
+  if (eventId === 'sprint' && finishSteps.length) firstFinish = Math.min(...finishSteps);
+}
+
+const mainSlot = { holder, fly };
+
+function markWatched(id, record, done) {
+  const before = watched.get(key(id)) ?? { progress: 0, done: false };
+  watched.set(key(id), { progress: Math.max(before.progress, progressOf(record)), done: before.done || done });
+}
+
+function placeRaceLanes(step) {
+  const stride = style === 'human' ? (eventId === 'swimming' ? 1.6 : 1.25) : STRIDE;
+  let time = 0;
+  for (const lane of raceLanes) {
+    const record = lane.run[Math.min(step, lane.run.length - 1)];
+    time = Math.max(time, record.simulation_time);
+    if (lane.record !== record || lane.style !== style) {
+      const returning = eventId === 'swimming' && record.turns > 0;
+      const x = returning ? 2 * race.pool_length - record.position : record.position;
+      lane.holder.position.x = x * BODY_LENGTH_MM;
+      lane.holder.rotation.y = returning ? Math.PI : 0;
+      lane.fly.setStyle(style);
+      const effort = Math.min(1, record.velocity / EVENTS[eventId].topSpeed);
+      lane.fly.pose(record.position / stride, effort, 0, {
+        event: eventId, airborne: record.airborne, lift: (record.height ?? 0) * BODY_LENGTH_MM,
+      });
+      lane.record = record;
+      lane.style = style;
+      if (step > 0) markWatched(lane.id, record, step >= lane.run.length - 1);
+    }
+    if (eventId === 'steeplechase' && sheetStep !== step) paintSplash(lane, step);
+  }
+  // Keep the camera on the same lane while leaders are tied.
+  if (!leader) leader = raceLanes[0];
+  for (const lane of raceLanes) {
+    if (lane.record.position > leader.record.position) leader = lane;
+  }
+  return time;
+}
+
+const tagPoint = new THREE.Vector3(), cameraDirection = new THREE.Vector3();
+function renderRaceTags() {
+  const width = canvas.clientWidth, height = canvas.clientHeight;
+  const boxes = [];
+  camera.getWorldDirection(cameraDirection);
+  const topEdge = Math.max(scaleBar.parentElement.offsetHeight, $('presenter').offsetHeight) + 5;
+  for (const lane of raceLanes) {
+    const tag = lane.tag;
+    tagPoint.copy(lane.holder.position);
+    tagPoint.y = (lane.record.height ?? 0) * BODY_LENGTH_MM + (eventId === 'swimming' ? 0.4 : 3.5);
+    if (eventId === 'swimming') tagPoint.z -= 0.55;
+    const inFront = tagPoint.dot(cameraDirection) > camera.position.dot(cameraDirection);
+    tagPoint.project(camera);
+    const x = (tagPoint.x + 1) * width / 2, y = (1 - tagPoint.y) * height / 2;
+    tag.hidden = !inFront || x < 0 || x > width || y < 0 || y > height || tagPoint.z > 1;
+    if (tag.hidden) continue;
+    const w = tag.offsetWidth, h = tag.offsetHeight;
+    const left = Math.max(w / 2 + 2, Math.min(width - w / 2 - 2, x));
+    const base = Math.max(topEdge + h, Math.min(height - 4, y));
+    let placed = false;
+    for (const dy of [0, -1, 1, -2, 2, -3, 3]) {
+      const bottom = base + dy * (h + 3);
+      const box = { l: left - w / 2, r: left + w / 2, t: bottom - h, b: bottom };
+      if (box.t < topEdge || box.b > height - 2 ||
+          boxes.some(b => box.l < b.r + 3 && box.r > b.l - 3 && box.t < b.b + 2 && box.b > b.t - 2)) continue;
+      tag.style.left = `${left}px`; tag.style.top = `${bottom}px`;
+      boxes.push(box);
+      placed = true;
+      break;
+    }
+    tag.hidden = !placed;
+  }
+}
+
+function sheetRow(entry, place, value) {
+  const row = document.createElement('tr');
+  row.dataset.controller = entry.id;
+  row.dataset.main = String(entry.id === selected);
+  const rank = row.insertCell();
+  rank.textContent = place;
+  const name = document.createElement('th');
+  name.scope = 'row'; name.textContent = entry.name;
+  row.append(name);
+  if (entry.lane) {
+    const lane = document.createElement('small');
+    lane.className = 'lane-number';
+    lane.textContent = `Lane ${entry.lane}${entry.id === selected ? ' · Main' : ''}`;
+    name.append(lane);
+  }
+  if (eventId === 'pacing' && Number.isFinite(entry.record.energy)) {
+    const energy = document.createElement('span');
+    energy.className = 'energy';
+    const meter = document.createElement('meter');
+    meter.min = 0; meter.max = 100; meter.value = entry.record.energy;
+    meter.setAttribute('aria-label', `${entry.name} energy`);
+    energy.append(meter, `${entry.record.energy.toFixed(1)} energy`);
+    name.append(energy);
+  }
+  row.insertCell().textContent = value;
+  return row;
+}
+
+function renderStandings(step) {
+  if (sheetStep === step) return;
+  sheetStep = step;
+  const archery = eventId === 'archery';
+  const final = step >= replayEnd;
+  $('race-sheet').hidden = archery && !final;
+  if (archery && !final) {
+    $('race-announcement').textContent = '';
+    return;
+  }
+  const entries = archery ? [selected, rivalId].map(id => ({
+    id,
+    name: controllers().find(c => c.id === id)?.name ?? id,
+    record: race.runs[runId(id)].at(-1),
+  })) : [...raceLanes];
+  const metric = entry => archery ? -entry.record.total_points
+    : final && finished(entry.record) ? entry.record.simulation_time : -entry.record.position;
+  const dnf = entry => final && !archery && !finished(entry.record);
+  entries.sort((a, b) => Number(dnf(a)) - Number(dnf(b)) || metric(a) - metric(b));
+  let place = 0;
+  const rows = entries.map((entry, i) => {
+    if (!i || metric(entry) !== metric(entries[i - 1])) place = i + 1;
+    const value = archery ? `${entry.record.total_points} / ${race.max_points}`
+      : dnf(entry) ? 'DNF'
+      : final ? `${formatTime(entry.record.simulation_time)} s`
+      : `${entry.record.position.toFixed(2)} BL`;
+    return sheetRow(entry, dnf(entry) ? '—' : ordinal(place), value);
+  });
+  $('race-sheet').dataset.results = String(final);
+  $('race-sheet-title').textContent = final ? 'Results' : 'Live standings';
+  $('race-measure').textContent = archery ? 'Score' : final ? 'Time' : 'Distance';
+  $('race-rows').replaceChildren(...rows);
+  $('race-announcement').textContent = final ? 'Results are ready.' : '';
+}
+
 let last = performance.now(), wallTime = 0, lastRackUpdate = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now; wallTime += dt;
-  if (playing && records.length) {
-    index = Math.min(records.length - 1, index + rate * dt / race.dt);  // playback rate only; the recorded run never changes
-    if (index >= records.length - 1) setPlaying(false);
+  if (playing && now >= photoUntil) {
+    const next = Math.min(replayEnd, index + rate * dt / race.dt);
+    if (firstFinish >= 0 && index < firstFinish && next >= firstFinish) {
+      index = firstFinish;
+      photoUntil = now + 900;
+    } else {
+      index = next;
+    }
+    if (index >= replayEnd) setPlaying(false);
     $('timeline').value = String(Math.floor(index));
   }
-  const r = sample(index);
-  if (records.length) {
-    if (index > 0) {
-      const before = watched.get(key(selected)) ?? { progress: 0, done: false };
-      watched.set(key(selected), { progress: Math.max(before.progress, progressOf(r.record) ?? 0), done: before.done || index >= records.length - 1 });
-    }
-    if (now - lastRackUpdate > 100) { updateRack(); lastRackUpdate = now; }
-    const seconds = Number($('ticks').dataset.seconds) || 1;
-    $('ruler').style.setProperty('--progress', `${Math.min(100, (r.time / seconds) * 100)}%`);
-    if (index > 0) {
-      const act = r.record.exhausted && r.action === 'ACCELERATE' ? 'ACC (exhausted)' : r.action;
-      setAction(act, r.action);
-    } else setAction('Ready', '');
+  if (!records.length) {
+    controls.update(); renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+    return;
   }
-  placeFly(r.position);
-  follow();
-  const archery = eventId === 'archery' && race && records.length;
-  let rivalRecord = null;
+
+  const step = Math.floor(index);
+  const archery = eventId === 'archery';
+  let record, time, position, velocity;
   if (archery) {
+    const mainStep = Math.min(records.length - 1, step);
+    record = records[mainStep];
     const bowAt = lane => bows[lane].group.position.clone().add(new THREE.Vector3(0.5, 0, 0));
-    placeArrows('main', records.slice(0, r.i + 1).filter(x => x.shot).map(x => x.landing), r.record.aim_offset, bowAt('main'));
+    placeArrows('main', records.slice(0, mainStep + 1).filter(x => x.shot).map(x => x.landing), record.aim_offset, bowAt('main'));
     const rivalRun = race.runs[runId(rivalId)] ?? [];
-    const k = Math.min(rivalRun.length - 1, r.i);
-    rivalRecord = rivalRun[k];
+    const k = Math.min(rivalRun.length - 1, step);
+    const rivalRecord = rivalRun[k];
+    time = Math.max(record.simulation_time, rivalRecord?.simulation_time ?? 0);
     placeArrows('rival', rivalRun.slice(0, k + 1).filter(x => x.shot).map(x => x.landing), rivalRecord?.aim_offset, bowAt('rival'));
     const human = style === 'human';
-    placeBow(bows.main, holder, LANE_Z.main, r.record.draw, human && !flying);
+    placeBow(bows.main, holder, LANE_Z.main, record.draw, human && !flying);
     placeBow(bows.rival, rivalHolder, LANE_Z.rival, rivalRecord?.draw ?? 0, human);
+    fly.pose(0, 0, reducedMotion ? 0 : wallTime, { event: 'archery', draw: record.draw, lift: flying ? 1.6 + (reducedMotion ? 0 : 0.05 * Math.sin(wallTime * 3)) : 0 });
     rival.setStyle(style);
     rival.pose(0, 0, reducedMotion ? 0 : wallTime, { event: 'archery', draw: rivalRecord?.draw ?? 0 });
     $('versus').textContent = String(rivalRecord?.total_points ?? 0);
     $('versus-label').textContent = EVENTS.archery.controllers.find(c => c.id === rivalId)?.name ?? 'Opponent';
+    if (step > 0) markWatched(selected, record, step >= records.length - 1);
+  } else {
+    time = placeRaceLanes(step);
+    record = raceLanes[0].record; position = record.position; velocity = record.velocity;
+    const showPhoto = firstFinish >= 0 && step === firstFinish;
+    if (photoShown !== showPhoto) {
+      photoShown = showPhoto;
+      $('photo-tape').hidden = !showPhoto;
+      frameThePad();
+    }
   }
-  const effort = Math.min(1, r.velocity / EVENTS[eventId].topSpeed);
-  const human = style === 'human';
-  const stride = human ? (eventId === 'swimming' ? 1.6 : 1.25) : STRIDE;  // body lengths per cycle
-  fly.pose(r.position / stride, flying && !human ? 0 : Math.max(effort, r.velocity > 0.01 ? 0.25 : 0), reducedMotion ? 0 : wallTime, {
-    event: eventId,
-    airborne: r.airborne,
-    draw: archery ? r.record.draw : 0,
-    lift: flying ? 1.6 + (reducedMotion ? 0 : 0.05 * Math.sin(wallTime * 3)) : r.height * BODY_LENGTH_MM,  // recorded jump height
-  });
-  scaleBar.style.width = `${bodyLengthOnScreen().toFixed(1)}px`;
-  const shown = records[Math.min(records.length - 1, Math.floor(index))];
-  updateEyeTag(shown);
-  drawCircuit(shown);
-  updateCircuitNote(shown);
-  $('time').textContent = r.time.toFixed(1);
-  $('distance').textContent = archery ? String(r.record.total_points) : r.position.toFixed(1);
-  $('speed').textContent = archery ? (r.record.wind + 0).toFixed(1).replace(/^-0\.0$/, '0.0') : r.velocity.toFixed(1);
+
+  if (now - lastRackUpdate > 100) { updateRack(); lastRackUpdate = now; }
+  const seconds = Number($('ticks').dataset.seconds) || 1;
+  $('ruler').style.setProperty('--progress', `${Math.min(100, (time / seconds) * 100)}%`);
+  const stopped = !archery && step >= records.length - 1;
+  if (stopped) setAction(finished(record) ? 'Finished' : 'DNF', '');
+  else if (!step) setAction('Ready', '');
+  else setAction(record.exhausted && record.action === 'ACCELERATE' ? 'ACC (exhausted)' : record.action, record.action);
+  $('time').textContent = formatTime(time);
+  $('distance').textContent = archery ? String(record.total_points) : position.toFixed(1);
+  $('speed').textContent = archery ? record.wind.toFixed(1).replace(/^-0\.0$/, '0.0') : velocity.toFixed(1);
+  updateEyeTag(record);
+  drawCircuit(record);
+  updateCircuitNote(record);
+  renderStandings(step);
+  follow(dt);
   controls.update();
   renderer.render(scene, camera);
+  scaleBar.style.width = `${bodyLengthOnScreen().toFixed(1)}px`;
   if (archery) renderTargetCam();
+  else renderRaceTags();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -805,6 +1109,19 @@ try {
   const response = await fetch('/runs.json');
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   payload = await response.json();
+  const runGroups = [payload.runs, ...Object.entries(payload.events ?? {})
+    .filter(([id]) => id !== 'archery' && EVENTS[id]).map(([, event]) => event.runs)];
+  const maxRacers = Math.max(...runGroups.map(runs => Object.values(runs).filter(run => run.length).length));
+  trackLaneCount = Math.max(5, 2 * Math.floor(maxRacers / 2) + 1);
+  halfTrackWidth = LANE * trackLaneCount / 2;
+  for (let i = 1; i < maxRacers; i++) {
+    const extra = await loadFly();
+    const slot = { holder: new THREE.Group(), fly: extra };
+    extra.setFlying(false);
+    slot.holder.add(extra.object);
+    scene.add(slot.holder);
+    reserveFlies.push(slot);
+  }
   buildEventTabs();
   selectEvent('sprint');
 } catch (error) {

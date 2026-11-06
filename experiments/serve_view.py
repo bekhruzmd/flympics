@@ -18,7 +18,8 @@ from brain.eye import EYE_CALIBRATION, BlindfoldedEye, FlyVisWindEye, SwappedEye
 import numpy as np
 
 
-HURDLES_CONTROLLERS = ('fly', 'rule', 'nocoast', 'random')
+# Hurdles controllers: 'trained' is "Trained fly (evolution-trained)"
+HURDLES_CONTROLLERS = ('trained', 'fly', 'rule', 'nocoast', 'random')
 SWIMMING_CONTROLLERS = ('fly', 'rule', 'full_strokes', 'random')
 ARCHERY_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
 STEEPLECHASE_CONTROLLERS = ('trained', 'fly', 'rule', 'random')

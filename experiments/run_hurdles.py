@@ -5,12 +5,12 @@ import csv
 import json
 from pathlib import Path
 
-from brain.controller import FlyBrainController
+from brain.controller import HURDLES_POLICY, FlyBrainController
 from controllers.base import Controller
 from controllers.hurdle_baselines import AlwaysController, HurdleRuleController, RandomController
 from events.hurdles import ACCELERATE, BENCHMARK_LAYOUT, COAST, JUMP, Hurdles, generate_layout
 
-CONTROLLERS = ("rule", "nocoast", "always_accelerate", "always_coast", "always_jump", "random", "fly")
+CONTROLLERS = ("rule", "nocoast", "always_accelerate", "always_coast", "always_jump", "random", "fly", "trained")
 LAYOUTS = ("benchmark", "seeded")
 
 
@@ -23,6 +23,7 @@ def make_controller(name: str) -> Controller:
         "always_jump": lambda: AlwaysController(JUMP),
         "random": RandomController,
         "fly": FlyBrainController.hurdles,
+        "trained": lambda: FlyBrainController.from_policy(HURDLES_POLICY),
     }[name]()
 
 

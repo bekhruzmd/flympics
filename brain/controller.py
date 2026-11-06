@@ -13,7 +13,8 @@ from .connectome import ConnectomeCircuit, load_manc_front_leg_circuit
 from .dynamics import RateNetwork
 from .eye import ARCHERY_EYE_INPUTS, ArcheryEyeEncoder
 from .archery_io import ARCHERY_INITIAL_THRESHOLDS, ARCHERY_INPUTS, ArcheryDecoder, ArcheryEncoder
-from .hurdles_io import HURDLES_INPUTS, HurdlesDecoder, HurdlesEncoder
+from .hurdles_io import (HURDLES_INITIAL_THRESHOLDS, HURDLES_INPUTS, HurdlesDecoder,
+                         HurdlesEncoder)
 from .motor import MotorDecoder
 from .swimming_io import SWIMMING_INPUTS, SwimmingDecoder, SwimmingEncoder
 from .sensory import LearnedSensoryEncoder, SensoryEncoder, load_encoder_weights
@@ -27,6 +28,7 @@ SPRINT_POLICY = MODELS_DIR / "sprint.json"
 SPRINT_ENCODER = MODELS_DIR / "sprint_encoder.csv"
 SPRINT_ENCODER_INIT = MODELS_DIR / "sprint_encoder_init.csv"
 HURDLES_ENCODER_INIT = MODELS_DIR / "hurdles_encoder_init.csv"
+HURDLES_POLICY = MODELS_DIR / "hurdles_es.json"
 SWIMMING_ENCODER_INIT = MODELS_DIR / "swimming_encoder_init.csv"
 ARCHERY_ENCODER_INIT = MODELS_DIR / "archery_encoder_init.csv"
 ARCHERY_POLICY = MODELS_DIR / "archery.json"
@@ -42,6 +44,7 @@ BAND_EVENTS = {
     "archery_eye": (ARCHERY_EYE_INPUTS, ArcheryEyeEncoder, ArcheryDecoder),
     "steeplechase": (STEEPLECHASE_INPUTS, SteeplechaseEncoder, SteeplechaseDecoder),
     "pacing": (PACING_INPUTS, PacingEncoder, PacingDecoder),
+    "hurdles": (HURDLES_INPUTS, HurdlesEncoder, HurdlesDecoder),
 }
 
 
@@ -83,6 +86,12 @@ class FlyBrainController(Controller):
         weights = load_encoder_weights(Path(path), circuit, HURDLES_INPUTS)
         return cls(circuit=circuit, encoder=HurdlesEncoder(circuit, weights),
                    decoder=HurdlesDecoder(circuit, coast_threshold, jump_threshold))
+
+    @classmethod
+    def hurdles_trained(cls, path: Path = HURDLES_POLICY,
+                        circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Trained Hurdles fly from policy JSON."""
+        return cls.from_policy(path, circuit)
 
     @classmethod
     def swimming(cls, path: Path = SWIMMING_ENCODER_INIT, motor_threshold: float = 0.015,

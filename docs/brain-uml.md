@@ -187,9 +187,6 @@ flowchart LR
         TT[test_training.py]
         TV[test_viewer.py]
     end
-    subgraph JS["node --test"]
-        TJ[test_signals.cjs]
-    end
 
     TS -->|"reset, determinism,<br/>termination, illegal action"| Sprint
     TB -->|"135 neurons, 2770 edges,<br/>24 sensory"| Conn[connectome.py]
@@ -198,7 +195,6 @@ flowchart LR
     TT -->|"train(7) == saved sprint.json;<br/>trained finishes, untrained doesn't"| Train[train_sprint.train]
     TT -->|"trained run matches always-ACCELERATE;<br/>bad thresholds and policy files raise"| FBC[FlyBrainController]
     TV -->|"payload matches circuit;<br/>activity in 0..1; summaries and actions match"| View[serve_view.viewer_payload]
-    TJ -->|"signal packets animate;<br/>scrubbing restores position"| Sig[visualization/web/signals.js]
 
     Train --> RunS
     View --> RunS

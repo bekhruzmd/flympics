@@ -2,56 +2,64 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Flympics · Sprint Lab</title>
-  <link rel="stylesheet" href="style.css?v=signals-2">
+  <title>Flympics · The fly on the bench</title>
+  <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js" } }</script>
+  <link rel="stylesheet" href="fly3d.css">
 </head>
 <body>
-<main>
-  <header><a class="brand" href="/">F<span>ly</span>mpics<span class="brand-dot">.</span></a><span class="pill">MENTOR MVP · LOCAL SIMULATION</span></header>
-  <section class="intro"><div><p class="eyebrow">SMALL FLY. BIG AMBITIONS.</p><h1>100 meters.<br>One tiny circuit.</h1><p class="description">Watch a connectome-derived controller take on the track.<br>Real connections. Modeled activity. Very questionable athleticism.</p></div><div class="experiment-label"><span>EXPERIMENT 001</span><strong>100 m sprint</strong><small id="seed">Loading simulation…</small></div></section>
-  <div class="toolbar"><label>Controller <select id="controller"><option value="trained">Trained fly · 100 m</option><option value="fly">Untrained fly</option><option value="rule">Rule baseline</option><option value="random">Random baseline</option></select></label><span id="status" role="status">Loading recorded run</span></div>
-  <div class="layout">
-    <section class="panel arena"><div class="panel-heading"><h2>The track</h2><span class="tag">FIXED TIMESTEP · 0.1 s</span></div>
-      <div class="stats"><div><span>Distance</span><strong><b id="distance">0.00</b><small> / 100 m</small></strong></div><div><span>Speed</span><strong><b id="velocity">0.00</b><small> m/s</small></strong></div><div><span>Time</span><strong><b id="time">0.0</b><small> s</small></strong></div></div>
-      <div class="track"><div class="track-labels"><span>START</span><span>FINISH</span></div><div class="lane"><div class="finish"></div><div id="athlete" aria-label="Fruit fly athlete"><svg viewBox="0 0 100 80" role="img" aria-label="Illustrated fruit fly"><g stroke="#2d342c" stroke-width="3" fill="none"><path d="M44 40 24 17M46 40 18 39M44 40 25 65M61 40 77 15M61 40 84 38M60 40 77 64"/></g><g class="fly-wings" fill="#e0f1e8" stroke="#6a9380" stroke-width="1.5" opacity=".92"><ellipse cx="37" cy="26" rx="24" ry="12" transform="rotate(25 37 26)"/><ellipse cx="37" cy="54" rx="24" ry="12" transform="rotate(-25 37 54)"/></g><ellipse cx="44" cy="40" rx="23" ry="13" fill="#a57b4b"/><path d="M33 30v20M42 28v24" stroke="#76522f" stroke-width="3"/><ellipse cx="64" cy="40" rx="14" ry="14" fill="#303b2d"/><circle cx="70" cy="34" r="6" fill="#df704d"/></svg></div></div><div class="ruler"><span>0</span><span>25</span><span>50</span><span>75</span><span>100 m</span></div></div>
-      <div class="action-row"><span>Controller action</span><strong id="action">READY</strong></div>
-      <div class="transport"><button id="play" disabled>Play run</button><button class="secondary" id="restart" disabled>Restart</button><label>Speed <select id="speed"><option value="1">1×</option><option value="5" selected>5×</option><option value="10">10×</option></select></label></div>
-      <label class="timeline-label" for="timeline">Simulation timeline <span id="progress">0 / 60 s</span></label><input id="timeline" type="range" min="0" max="600" value="0" disabled>
-      <p class="caption">Playback of an actual Python simulation. Playback speed never changes the physics. <span class="shortcut-tip"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> scrub · <kbd>R</kbd> reset</span></p>
-    </section>
-    <aside class="panel activity"><div class="panel-heading"><h2>The sprinting brain</h2><span class="activity-dot"></span></div><p class="subheading">Explore the route from sensing to movement.</p>
-      <section class="brain-widget" aria-label="Interactive fly brain and sprint circuit">
-        <div class="brain-topline"><span>FLY NERVOUS SYSTEM</span><output id="brain-time">0.0 s</output></div>
-        <div class="brain-title">A tiny network.<br>A 100-meter mission.</div>
-        <p class="brain-instruction">Press play to follow signals between neurons.</p>
-        <svg id="brain-map" viewBox="0 0 600 480" role="group" aria-label="Illustrative fly brain above a modeled nerve-cord circuit"></svg>
-        <div class="brain-legend"><span><i></i> Brain: anatomical context</span><span><i></i> Nerve cord: modeled activity</span></div>
-        <div id="brain-regions" class="brain-regions" aria-label="Explore regions"></div>
-        <div class="brain-detail"><div><span id="brain-region-kind"></span><output id="brain-region-value"></output></div><h3 id="brain-region-title"></h3><p id="brain-region-description"></p></div>
-        <p id="brain-state" class="brain-state">Ready · play or scrub the sprint to see activity.</p>
-        <p class="brain-disclosure">Moving dots follow a subset of real MANC connections, from source to target. Brightness uses recorded activity with enhanced contrast. Travel timing is illustrative, not measured spikes. Brain anatomy and background fibers are illustrative.</p>
-        <a class="brain-source" href="https://www.janelia.org/node/68782" target="_blank" rel="noopener noreferrer">About the MANC movement circuits ↗</a>
-      </section>
-      <details class="neuron-inspector"><summary>Inspect the 135 modeled neurons</summary>
-      <section class="neural-inset" aria-label="Neuron activity inspector">
-        <div class="neural-heading"><span>NEURAL ACTIVITY</span><output id="neural-time">0.0 s</output></div>
-        <p class="neural-goal">Task goal <strong>Move forward · reach 100 m</strong></p>
-        <svg id="neuron-map" viewBox="0 0 340 250" role="group" aria-label="Selected MANC circuit, arranged by role"></svg>
-        <div class="neural-legend"><span>Sensory</span><span>Interneurons</span><span>Motor</span></div>
-        <label class="neuron-picker" for="neuron-select">Inspect neuron <select id="neuron-select"></select></label>
-        <p id="neuron-detail" class="neuron-detail">Select a neuron to inspect its modeled activity.</p>
-        <p class="neural-key">Lines connect the selected neuron; moving dots show source → target direction with enhanced activity contrast. Travel timing is illustrative. Neuron brightness: activity 0 → 1. Role layout, not anatomical positions.</p>
-      </section></details>
-      <div id="bars"></div>
-      <div class="readout"><span>Extensor − flexor</span><strong id="difference">0.00000</strong><small id="threshold-note">Loading motor threshold…</small></div>
-      <p class="note" id="activity-note">Bars show mean modeled activity (0–1), not measured firing rates. Bright bars don’t necessarily mean better running.</p>
-<p class="note">Role layout, not anatomical positions. This is a nerve-cord circuit, not a whole brain. Reward and dopamine learning are not modeled yet; the task goal is assigned to the controller, not individual neurons.</p>
-    </aside>
+<main class="bench">
+  <header class="masthead">
+    <h1>Flympics<span id="event-title">100 body lengths</span></h1>
+    <div class="events" id="events" role="radiogroup" aria-label="Event"></div>
+  </header>
+
+  <section class="pad-area" aria-label="The scanned fruit fly replaying the selected run">
+    <canvas id="scene"></canvas>
+    <p class="scale-bar" aria-hidden="true"><i></i><span>1 body length ≈ 2.5 mm</span></p>
+    <p class="cheat" id="cheat" hidden>Fly mode: cheat, picture only</p>
+  </section>
+
+  <aside class="readouts" aria-label="Run readouts">
+    <p class="tape tape-time"><span>Time</span><output id="time">0.0</output><small>s</small></p>
+    <p class="tape"><span id="distance-label">Distance</span><output id="distance">0.0</output><small id="distance-unit">BL</small></p>
+    <p class="tape"><span id="speed-label">Speed</span><output id="speed">0.0</output><small id="speed-unit">BL/s</small></p>
+    <p class="tape tape-action" id="action-tape"><span>Action</span><output id="action">Loading runs</output></p>
+    <div class="deck">
+      <button class="tape-button play" id="play" type="button" disabled aria-label="Play">
+        <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>
+        <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg>
+        <span id="play-label">Play</span>
+      </button>
+      <button class="tape-button fast" id="fast" type="button" aria-pressed="false">4× replay</button>
+      <div class="mode" role="radiogroup" aria-label="Animation style">
+        <button class="tape-button" id="human-style" type="button" role="radio" aria-checked="true">Human style</button>
+        <button class="tape-button" id="fly-style" type="button" role="radio" aria-checked="false">Fly legs</button>
+      </div>
+      <div class="mode" role="radiogroup" aria-label="Locomotion">
+        <button class="tape-button" id="run-mode" type="button" role="radio" aria-checked="true">Run</button>
+        <button class="tape-button" id="fly-mode" type="button" role="radio" aria-checked="false">Fly</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="ruler-area">
+    <label class="ruler-label" for="timeline">Time, seconds</label>
+    <div class="ruler" id="ruler">
+      <input id="timeline" type="range" min="0" max="0" value="0" step="1" disabled>
+      <ol class="ruler-ticks" id="ticks" aria-hidden="true"></ol>
+    </div>
   </div>
-  <footer><div><strong>135 neurons · 2,770 connections</strong><p>Real MANC connectivity with artificial sensory and motor mappings.<br>This is a selected nerve-cord model, not a whole-brain simulation.</p></div><a id="download" href="#">Download run JSON ↗</a></footer>
+
+  <section class="rack-area" aria-labelledby="rack-title">
+    <h2 id="rack-title">Pull a vial to load its run</h2>
+    <div class="rack" id="rack" role="radiogroup" aria-labelledby="rack-title"></div>
+  </section>
+
+  <footer class="fine-print">
+    <p><b>Real:</b> the 135-neuron front-leg circuit and its 2,770 connections (MANC v1.2.1), and the fly's body, scanned by micro-CT (NeuroMechFly, FlyGym, Apache-2.0).</p>
+    <p><b>Modeled:</b> the race and its physics, read as 1 sim metre = 1 body length; the six-leg gait and the wingbeat are hand-made animation, not output of the circuit. Flight is not in the race physics. <span id="style-note">Human style is a cartoon: a fruit fly does not run on two legs or swing its front legs like arms; the poses follow typical human sprint, hurdle and front-crawl joint angles.</span> <span id="event-note"></span></p>
+  </footer>
 </main>
-<script src="signals.js?v=2"></script>
-<script src="brain.js?v=signals-2"></script>
-<script src="neural.js?v=signals-2"></script>
-<script src="app.js?v=signals-2"></script>
-</body></html>
+<script type="module" src="fly3d-page.js"></script>
+</body>
+</html>

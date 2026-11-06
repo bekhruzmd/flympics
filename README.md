@@ -180,6 +180,51 @@ lesioned fly. The sprint and fly controller are deterministic; seeds only choose
 the random lesions. The trained threshold is tiny (about 1e-5), so small activity
 changes can flip actions: compare targeted lesions against the random control.
 
+## More events
+
+Each event has its own guide: [Hurdles](docs/hurdles.md), [Swimming](docs/swimming.md),
+[Archery](docs/archery.md) and [Steeplechase](docs/steeplechase.md).
+
+- **Archery:** six arrows in a gusty crosswind. Aim LEFT/RIGHT against the wind, then
+  RELEASE once the bow is drawn. Score is total points (0–60, higher is better).
+- **Steeplechase:** 600 m over 12 barriers, four of them water jumps with a pit behind,
+  with a stamina budget that punishes running flat out.
+
+```bash
+python -m experiments.run_archery --controller rule
+python -m experiments.run_steeplechase --controller rule
+python -m experiments.train_archery
+python -m experiments.train_steeplechase
+python -m experiments.run_archery --controller trained
+python -m experiments.run_steeplechase --controller trained
+```
+
+Both flies are trained with an evolution strategy (OpenAI-ES) on the sensory encoder
+weights and the decoder band thresholds only; the connectome and dynamics stay frozen.
+Outcome-only training gets stuck, so it first imitates the rule baseline, then optimises
+the event outcome. See [docs/evolution-training.md](docs/evolution-training.md).
+
+Checked-in results (`models/archery.json`, `models/steeplechase.json`):
+
+| Archery, 100 held-out winds | Mean points / 60 | 10s |
+|---|---:|---:|
+| Rule (knows the drift constant) | 59.92 | 99 % |
+| **Trained fly** | **55.21** | 56 % |
+| Always release at the centre | 42.79 | 19 % |
+| Untrained fly | 41.95 | 19 % |
+
+| Steeplechase, fixed course | Time | Barriers cleared | Splashes |
+|---|---:|---:|---:|
+| Rule | 121.3 s | 12 | 0 |
+| **Trained fly** | **141.0 s** | 12 | 4 |
+| Random | 196.5 s | 0 | 4 |
+| Always accelerate | 238.4 s | 0 | 4 |
+| Untrained fly | did not start | 0 | 0 |
+
+The trained archery fly steers against the wind and only then releases. The trained
+steeplechase fly clears every barrier at a safe, steady pace, but never builds enough
+speed for the water jumps and finishes with most of its stamina unused.
+
 ## Tests
 
 ```bash
@@ -210,7 +255,7 @@ Add an event by implementing `OlympicEvent` (`reset`, `observe`, `step`, `is_fin
 
 ## Future ideas (not implemented)
 
-Hurdles, archery, swimming, evolutionary sensory/motor mappings, personalized fly training, student-trained-fly tournaments, replay, and neural-activity visualization are deliberately left for students.
+Personalized fly training, student-trained-fly tournaments, replay, and neural-activity visualization are deliberately left for students.
 
 ## Sources and attribution
 

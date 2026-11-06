@@ -6,3 +6,4 @@ results/
 data/raw/
 visualization/web/runs.json
 visualization/web/.vercel/
+.venv-vision/

@@ -11,6 +11,7 @@ import numpy as np
 from controllers.base import Controller
 from .connectome import ConnectomeCircuit, load_manc_front_leg_circuit
 from .dynamics import RateNetwork
+from .eye import ARCHERY_EYE_INPUTS, ArcheryEyeEncoder
 from .archery_io import ARCHERY_INITIAL_THRESHOLDS, ARCHERY_INPUTS, ArcheryDecoder, ArcheryEncoder
 from .hurdles_io import HURDLES_INPUTS, HurdlesDecoder, HurdlesEncoder
 from .motor import MotorDecoder
@@ -33,6 +34,8 @@ STEEPLECHASE_POLICY = MODELS_DIR / "steeplechase.json"
 # Event name -> (encoder inputs, encoder class, decoder class) for the band-decoder events.
 BAND_EVENTS = {
     "archery": (ARCHERY_INPUTS, ArcheryEncoder, ArcheryDecoder),
+    # Archery with the wind sensed through the FlyVis-calibrated eye (brain/eye.py).
+    "archery_eye": (ARCHERY_EYE_INPUTS, ArcheryEyeEncoder, ArcheryDecoder),
     "steeplechase": (STEEPLECHASE_INPUTS, SteeplechaseEncoder, SteeplechaseDecoder),
 }
 

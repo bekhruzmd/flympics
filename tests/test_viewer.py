@@ -74,3 +74,18 @@ def test_viewer_eye_flies_and_activity():
     assert 'neuron_activity' not in archery['runs']['rule'][0]
     assert archery['runs']['eye'][-1]['total_points'] >= archery['runs']['eye_blind'][-1]['total_points']
     assert archery['eye']['wind'][0] == -4.0
+
+
+def test_viewer_pacing_matches_runner():
+    from brain.connectome import load_manc_front_leg_circuit
+    from experiments import run_pacing
+    from experiments.serve_view import PACING_CONTROLLERS
+    events = viewer_payload(7)['events']
+    assert events['pacing']['distance'] == 400.0
+    assert events['pacing']['dt'] == 0.1
+    for name in PACING_CONTROLLERS:
+        assert without_activity(events['pacing']['runs'][name]) == run_pacing.run(name, 7)
+    size = load_manc_front_leg_circuit().size
+    assert all(len(row['neuron_activity']) == size for row in events['pacing']['runs']['trained'])
+    assert 'neuron_activity' not in events['pacing']['runs']['rule'][0]
+

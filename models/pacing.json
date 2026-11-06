@@ -1,0 +1,345 @@
+{
+  "version": 1,
+  "event": "pacing",
+  "method": "deterministic motor-threshold grid search",
+  "encoder": "pacing_encoder_init.csv",
+  "inputs": [
+    "distance",
+    "velocity",
+    "energy"
+  ],
+  "actions": [
+    "COAST",
+    "ACCELERATE"
+  ],
+  "thresholds": [
+    8.619535664753033e-06
+  ],
+  "seed": 7,
+  "best": {
+    "motor_threshold": 8.619535664753033e-06,
+    "score": 198.1,
+    "finished": true,
+    "time": 198.1,
+    "distance": 400.0,
+    "final_energy": 0.0,
+    "exhausted_steps": 1315
+  },
+  "untrained": {
+    "motor_threshold": 0.015,
+    "score": 635.33890479,
+    "finished": false,
+    "time": 240.0,
+    "distance": 4.6611,
+    "final_energy": 99.4,
+    "exhausted_steps": 0
+  },
+  "trials": [
+    {
+      "motor_threshold": 0.015,
+      "score": 635.33890479,
+      "finished": false,
+      "time": 240.0,
+      "distance": 4.6611,
+      "final_energy": 99.4,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.1,
+      "score": 638.77298249,
+      "finished": false,
+      "time": 240.0,
+      "distance": 1.227,
+      "final_energy": 99.85,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.05945570708544391,
+      "score": 637.58932183,
+      "finished": false,
+      "time": 240.0,
+      "distance": 2.4107,
+      "final_energy": 99.7,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.03534981105030106,
+      "score": 637.58932183,
+      "finished": false,
+      "time": 240.0,
+      "distance": 2.4107,
+      "final_energy": 99.7,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.021017480113324893,
+      "score": 635.33890479,
+      "finished": false,
+      "time": 240.0,
+      "distance": 4.6611,
+      "final_energy": 99.4,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.012496091412919868,
+      "score": 634.26639702,
+      "finished": false,
+      "time": 240.0,
+      "distance": 5.7336,
+      "final_energy": 99.25,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.00742963950759495,
+      "score": 634.26639702,
+      "finished": false,
+      "time": 240.0,
+      "distance": 5.7336,
+      "final_energy": 99.25,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.004417344703140073,
+      "score": 633.22565734,
+      "finished": false,
+      "time": 240.0,
+      "distance": 6.7743,
+      "final_energy": 99.1,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.0026263635276533325,
+      "score": 633.22565734,
+      "finished": false,
+      "time": 240.0,
+      "distance": 6.7743,
+      "final_energy": 99.1,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.0015615230060004965,
+      "score": 632.21446016,
+      "finished": false,
+      "time": 240.0,
+      "distance": 7.7855,
+      "final_energy": 98.95,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.0009284145445194745,
+      "score": 631.23078413,
+      "finished": false,
+      "time": 240.0,
+      "distance": 8.7692,
+      "final_energy": 98.8,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.0005519954321281573,
+      "score": 631.23078413,
+      "finished": false,
+      "time": 240.0,
+      "distance": 8.7692,
+      "final_energy": 98.8,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.0003281927872511474,
+      "score": 630.27278822,
+      "finished": false,
+      "time": 240.0,
+      "distance": 9.7272,
+      "final_energy": 98.65,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.00019512934226359642,
+      "score": 629.33879117,
+      "finished": false,
+      "time": 240.0,
+      "distance": 10.6612,
+      "final_energy": 98.5,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 0.00011601553017399714,
+      "score": 629.33879117,
+      "finished": false,
+      "time": 240.0,
+      "distance": 10.6612,
+      "final_energy": 98.5,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 6.897785379387658e-05,
+      "score": 628.42725377,
+      "finished": false,
+      "time": 240.0,
+      "distance": 11.5727,
+      "final_energy": 98.35,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 4.1011270705513043e-05,
+      "score": 627.5367636,
+      "finished": false,
+      "time": 240.0,
+      "distance": 12.4632,
+      "final_energy": 98.2,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 2.4383540982688266e-05,
+      "score": 626.66602169,
+      "finished": false,
+      "time": 240.0,
+      "distance": 13.334,
+      "final_energy": 98.05,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 1.4497406703726346e-05,
+      "score": 624.16076461,
+      "finished": false,
+      "time": 240.0,
+      "distance": 15.8392,
+      "final_energy": 97.6,
+      "exhausted_steps": 0
+    },
+    {
+      "motor_threshold": 8.619535664753033e-06,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 5.124805876960936e-06,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 3.0469895709035113e-06,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 1.8116091942004133e-06,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 1.077105056036769e-06,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 6.404004271197283e-07,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 3.807546021222376e-07,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 2.263803409521451e-07,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 1.3459603241553642e-07,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 8.002502278161052e-08,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 4.757944314009414e-08,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 2.8288694346259725e-08,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 1.681924324880869e-08,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 1e-08,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    },
+    {
+      "motor_threshold": 0.0,
+      "score": 198.1,
+      "finished": true,
+      "time": 198.1,
+      "distance": 400.0,
+      "final_energy": 0.0,
+      "exhausted_steps": 1315
+    }
+  ]
+}

@@ -19,6 +19,8 @@ from .swimming_io import SWIMMING_INPUTS, SwimmingDecoder, SwimmingEncoder
 from .sensory import LearnedSensoryEncoder, SensoryEncoder, load_encoder_weights
 from .steeplechase_io import (STEEPLECHASE_INITIAL_THRESHOLDS, STEEPLECHASE_INPUTS,
                               SteeplechaseDecoder, SteeplechaseEncoder)
+from .pacing_io import (PACING_INITIAL_THRESHOLDS, PACING_INPUTS,
+                        PacingDecoder, PacingEncoder)
 
 MODELS_DIR = Path(__file__).resolve().parents[1] / "models"
 SPRINT_POLICY = MODELS_DIR / "sprint.json"
@@ -30,6 +32,8 @@ ARCHERY_ENCODER_INIT = MODELS_DIR / "archery_encoder_init.csv"
 ARCHERY_POLICY = MODELS_DIR / "archery.json"
 STEEPLECHASE_ENCODER_INIT = MODELS_DIR / "steeplechase_encoder_init.csv"
 STEEPLECHASE_POLICY = MODELS_DIR / "steeplechase.json"
+PACING_ENCODER_INIT = MODELS_DIR / "pacing_encoder_init.csv"
+PACING_POLICY = MODELS_DIR / "pacing.json"
 
 # Event name -> (encoder inputs, encoder class, decoder class) for the band-decoder events.
 BAND_EVENTS = {
@@ -37,6 +41,7 @@ BAND_EVENTS = {
     # Archery with the wind sensed through the FlyVis-calibrated eye (brain/eye.py).
     "archery_eye": (ARCHERY_EYE_INPUTS, ArcheryEyeEncoder, ArcheryDecoder),
     "steeplechase": (STEEPLECHASE_INPUTS, SteeplechaseEncoder, SteeplechaseDecoder),
+    "pacing": (PACING_INPUTS, PacingEncoder, PacingDecoder),
 }
 
 
@@ -113,6 +118,18 @@ class FlyBrainController(Controller):
                      circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
         """Untrained Steeplechase fly: starting encoder weights, Hurdles' placeholder thresholds."""
         return cls.band_event("steeplechase", path, thresholds, circuit)
+
+    @classmethod
+    def pacing(cls, path: Path = PACING_ENCODER_INIT, thresholds=PACING_INITIAL_THRESHOLDS,
+               circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Untrained 400 m Pacing fly: starting encoder weights, default threshold."""
+        return cls.band_event("pacing", path, thresholds, circuit)
+
+    @classmethod
+    def pacing_trained(cls, path: Path = PACING_POLICY,
+                       circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Trained 400 m Pacing fly from policy JSON."""
+        return cls.from_policy(path, circuit)
 
     @classmethod
     def from_policy(cls, path: Path, circuit: ConnectomeCircuit | None = None) -> FlyBrainController:

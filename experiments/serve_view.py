@@ -5,8 +5,9 @@ from pathlib import Path
 import argparse
 import json
 
-from experiments import run_archery, run_hurdles, run_steeplechase, run_swimming
+from experiments import run_archery, run_hurdles, run_pacing, run_steeplechase, run_swimming
 from events.archery import Archery
+from events.pacing import Pacing400m
 from events.steeplechase import BARRIERS, WATER, Steeplechase
 from experiments.run_sprint import run
 from events.hurdles import Hurdles
@@ -21,6 +22,7 @@ HURDLES_CONTROLLERS = ('fly', 'rule', 'nocoast', 'random')
 SWIMMING_CONTROLLERS = ('fly', 'rule', 'full_strokes', 'random')
 ARCHERY_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
 STEEPLECHASE_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
+PACING_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
 
 
 ARCHERY_EYE_POLICY = MODELS_DIR / 'archery_eye.json'
@@ -71,6 +73,11 @@ def viewer_payload(seed: int) -> dict:
         'runs': {name: run(name, seed, record_activity=True)
                  for name in ('trained', 'fly', 'rule', 'random')},
         'events': {
+            'pacing': {
+                'distance': Pacing400m().distance,
+                'dt': Pacing400m().dt,
+                'runs': {name: event_run(run_pacing, name, seed) for name in PACING_CONTROLLERS},
+            },
             'hurdles': {
                 'distance': Hurdles().distance,
                 'dt': Hurdles().dt,

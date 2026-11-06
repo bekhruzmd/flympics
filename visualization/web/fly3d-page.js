@@ -56,6 +56,16 @@ const EVENTS = {
       { id: 'random', name: 'Random', note: 'Seeded random actions' },
     ],
   },
+  pacing: {
+    label: 'Pacing', title: '400 body lengths', topSpeed: 1.25 / 0.10,
+    note: 'Pacing: 400 BL with a limited energy budget (100 units). Sprinting flat-out exhausts energy early and crawls at 0.43 BL/s.',
+    controllers: [
+      { id: 'trained', name: 'Trained fly', note: 'MANC circuit, threshold-trained' },
+      UNTRAINED,
+      { id: 'rule', name: 'Rule', note: 'Paced cruise at 3.3 BL/s' },
+      { id: 'random', name: 'Random', note: 'Seeded random actions' },
+    ],
+  },
 };
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -342,7 +352,7 @@ for (const button of $('eye-modes').children) {
 addEventListener('keydown', event => {
   if (event.target.closest?.('input, select, textarea')) return;
   if (event.code === 'Space') { event.preventDefault(); $('play').click(); }
-  else if (event.key >= '1' && event.key <= '4') selectRun(EVENTS[eventId].controllers[Number(event.key) - 1]?.id);
+  else if (event.key >= '1' && event.key <= '5') selectRun(EVENTS[eventId].controllers[Number(event.key) - 1]?.id);
   else if (event.key === 'f') setMode(!flying);
   else if (event.key === 'p' || event.key === 'P') togglePresenter();
   else if (presenting && event.key === 'ArrowRight') presenterStep(step + 1);
@@ -406,7 +416,7 @@ function selectEvent(id) {
   frameThePad();
   buildRuler(Math.ceil(Math.max(...Object.values(data.runs).map(run => run.at(-1).simulation_time))));
   buildRack();
-  selectRun(id === 'archery' ? 'eye' : ['sprint', 'steeplechase'].includes(id) ? 'trained' : 'rule');
+  selectRun(id === 'archery' ? 'eye' : ['sprint', 'steeplechase', 'pacing'].includes(id) ? 'trained' : 'rule');
   index = 0; placeFly(0);
   frameThePad();
 }
@@ -624,7 +634,10 @@ function frame(now) {
     if (now - lastRackUpdate > 100) { updateRack(); lastRackUpdate = now; }
     const seconds = Number($('ticks').dataset.seconds) || 1;
     $('ruler').style.setProperty('--progress', `${Math.min(100, (r.time / seconds) * 100)}%`);
-    if (index > 0) setAction(r.action, r.action); else setAction('Ready', '');
+    if (index > 0) {
+      const act = r.record.exhausted && r.action === 'ACCELERATE' ? 'ACC (exhausted)' : r.action;
+      setAction(act, r.action);
+    } else setAction('Ready', '');
   }
   placeFly(r.position);
   follow();

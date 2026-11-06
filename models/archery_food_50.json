@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "event": "archery",
+  "method": "Reward-modulated learning (node perturbation) from food after each arrow, on MANC connection strengths (multiplier within the drift limit) and input weights; wind sensed through a FlyVis-calibrated eye; thresholds, wiring map and neuron model fixed",
+  "inputs": [
+    "aim",
+    "eye",
+    "draw"
+  ],
+  "actions": [
+    "LEFT",
+    "RELEASE",
+    "RIGHT"
+  ],
+  "thresholds": [
+    0.04492705396654617,
+    0.050927053966546176
+  ],
+  "encoder": "archery_food_50_encoder.csv",
+  "connections": "archery_food_50_connections.csv",
+  "eye_calibration": "flyvis_wind_eye.json",
+  "settings": {
+    "drift": "50",
+    "noise": 0.1,
+    "weight_rate": 0.01,
+    "input_rate": 0.05,
+    "baseline_rate": 0.05,
+    "explore_motor_only": true,
+    "gain": 1.0,
+    "leak": 0.35,
+    "substeps": 2,
+    "thresholds_from": "untrained resting output +/- 0.003",
+    "ends": 20000,
+    "seed": 0,
+    "drift_limits": [
+      0.5,
+      1.5
+    ],
+    "train_seeds": "0-499, repeating",
+    "food": "points / 10, +1 for a bullseye"
+  },
+  "training_seconds": 174.6,
+  "before_practice": {
+    "with_own_noise": {
+      "validation_seeds": "1000-1099",
+      "mean_points": 28.42,
+      "min_points": 4,
+      "max_points": 48
+    },
+    "without_noise": {
+      "validation_seeds": "1000-1099",
+      "mean_points": 1.34,
+      "min_points": 0.0,
+      "perfect_tens_rate": 0.005,
+      "timeouts": 365,
+      "mean_end_time": 45.15
+    }
+  },
+  "after_practice": {
+    "with_own_noise": {
+      "validation_seeds": "1000-1099",
+      "mean_points": 31.06,
+      "min_points": 9,
+      "max_points": 52
+    },
+    "without_noise": {
+      "validation_seeds": "1000-1099",
+      "mean_points": 7.93,
+      "min_points": 0.0,
+      "perfect_tens_rate": 0.002,
+      "timeouts": 265,
+      "mean_end_time": 33.55
+    }
+  },
+  "for_comparison": {
+    "evolution_trained_wind_number_fly": {
+      "validation_seeds": "1000-1099",
+      "mean_points": 55.21,
+      "min_points": 48.0,
+      "perfect_tens_rate": 0.562,
+      "timeouts": 0,
+      "mean_end_time": 8.1
+    },
+    "untrained_wind_number_fly": {
+      "validation_seeds": "1000-1099",
+      "mean_points": 41.95,
+      "min_points": 30.0,
+      "perfect_tens_rate": 0.187,
+      "timeouts": 0,
+      "mean_end_time": 6.6
+    }
+  },
+  "drift": {
+    "mean_change_percent": 1.95,
+    "max_change_percent": 50.0,
+    "connections_changed_over_10_percent": 153,
+    "connections": 2770,
+    "mean_change_percent_by_pathway": {
+      "intrinsic -> intrinsic": 0.0,
+      "intrinsic -> motor_extensor": 32.49,
+      "intrinsic -> motor_flexor": 24.75,
+      "intrinsic -> sensory": 0.0,
+      "motor_extensor -> intrinsic": 0.0,
+      "motor_extensor -> motor_extensor": 29.99,
+      "motor_extensor -> motor_flexor": 20.75,
+      "motor_flexor -> intrinsic": 0.0,
+      "motor_flexor -> motor_extensor": 48.04,
+      "motor_flexor -> motor_flexor": 32.16,
+      "sensory -> intrinsic": 0.0,
+      "sensory -> motor_extensor": 35.61,
+      "sensory -> motor_flexor": 27.03,
+      "sensory -> sensory": 0.0
+    }
+  }
+}

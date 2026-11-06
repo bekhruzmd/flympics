@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "event": "archery_eye",
+  "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights and band thresholds: teacher-forced imitation of the rule baseline (thresholds fitted exactly per candidate), then the event outcome; connectome and dynamics frozen",
+  "encoder": "archery_eye_encoder.csv",
+  "inputs": [
+    "aim",
+    "eye",
+    "draw"
+  ],
+  "actions": [
+    "LEFT",
+    "RELEASE",
+    "RIGHT"
+  ],
+  "thresholds": [
+    4.401073267989997e-06,
+    1.3651183812302126e-05
+  ],
+  "hyperparameters": {
+    "generations": 60,
+    "pairs": 24,
+    "population": 49,
+    "weight_sigma": 0.3,
+    "threshold_sigma": 0.02,
+    "lr": 0.05,
+    "seed": 0,
+    "train_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "imitation_generations": 150,
+    "start_sigma": 0.5
+  },
+  "train_fitness": 52.4993286497377,
+  "training_seconds": 138.7,
+  "trained": {
+    "validation_seeds": "1000-1099",
+    "mean_points": 55.35,
+    "min_points": 47.0,
+    "perfect_tens_rate": 0.595,
+    "timeouts": 0,
+    "mean_end_time": 7.99
+  },
+  "untrained": {
+    "validation_seeds": "1000-1099",
+    "mean_points": 42.2,
+    "min_points": 30.0,
+    "perfect_tens_rate": 0.19,
+    "timeouts": 0,
+    "mean_end_time": 6.6
+  }
+}

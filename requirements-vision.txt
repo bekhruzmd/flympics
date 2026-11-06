@@ -1,0 +1,6 @@
+# Optional: the FlyVis eye experiment (experiments/vision_archery.py). Install into a
+# separate environment so the core project stays small and offline:
+#   python3 -m venv .venv-vision
+#   .venv-vision/bin/python -m pip install -r requirements.txt -r requirements-vision.txt
+#   FLYVIS_ROOT_DIR=$HOME/flyvis-data .venv-vision/bin/flyvis download-pretrained --skip_large_files
+flyvis==1.2.0

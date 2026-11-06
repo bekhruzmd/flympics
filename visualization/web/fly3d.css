@@ -96,10 +96,10 @@ h1 span {
 .tape:nth-child(odd) { transform: rotate(-1deg); }
 .tape:nth-child(even) { transform: rotate(.8deg); }
 .tape span { grid-column: 1 / -1; font-size: calc(var(--u) * .72); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5a5a52; }
-.tape output { font: 800 calc(var(--u) * 2.2)/1 var(--face); font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.tape output { font: 800 calc(var(--u) * 1.9)/1 var(--face); font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .tape small { font: 400 calc(var(--u) * 1)/1 var(--marker); }
 .tape-action { background: var(--tape); }
-.tape-action output { font: 400 calc(var(--u) * 1.5)/1 var(--marker); }
+.tape-action output { font: 400 calc(var(--u) * 1.3)/1 var(--marker); }
 .tape-action[data-action="ACCELERATE"] { background: var(--pink); }
 .tape-action[data-action="COAST"] { background: var(--blue); }
 .tape-action[data-action="PULL"] { background: var(--pink); }
@@ -109,8 +109,10 @@ h1 span {
 .tape-action[data-action="LEFT"], .tape-action[data-action="RIGHT"] { background: var(--blue); }
 .tape-action[data-action] span { color: rgba(21, 21, 19, .75); }
 
-.deck { display: flex; flex-wrap: wrap; gap: calc(var(--u) * .5); margin-top: calc(var(--u) * .3); }
-.deck .tape-button { padding: .45em .8em .4em; }
+.deck { display: flex; flex-wrap: wrap; gap: calc(var(--u) * .4); margin-top: calc(var(--u) * .2); }
+.deck .mode .tape-button { font-size: calc(var(--u) * .82); padding: .35em .55em .3em; }
+.deck .tape-button { padding: .4em .7em .35em; font-size: calc(var(--u) * .95); }
+.deck .play { font-size: calc(var(--u) * 1.15); }
 .tape-button {
   display: inline-flex; align-items: center; gap: .45em; border: 0; cursor: pointer;
   padding: .5em 1em .45em; background: var(--tape-shade); color: var(--ink);
@@ -151,7 +153,7 @@ h1 span {
 #timeline::-moz-range-thumb { width: 4px; height: calc(var(--u) * 3.4); border: 0; border-radius: 0; background: var(--ink); }
 
 /* Rack of vials */
-.rack-area { grid-area: rack; margin-top: calc(var(--u) * 2.4); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 4fr); align-items: end; gap: calc(var(--u) * 2); }
+.rack-area { grid-area: rack; margin-top: calc(var(--u) * 1.8); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 4fr); align-items: end; gap: calc(var(--u) * 2); }
 .rack-area h2 { margin: 0 0 calc(var(--u) * 1); font-size: calc(var(--u) * 1.15); font-weight: 800; font-stretch: 87%; line-height: 1.15; text-transform: uppercase; }
 .rack {
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(var(--u) * 1.4);
@@ -160,7 +162,7 @@ h1 span {
 }
 .vial {
   --fill: 0; position: relative; display: block; justify-self: center;
-  width: calc(var(--u) * 10); height: min(calc(var(--u) * 12), 24vh);
+  width: calc(var(--u) * 10); height: min(calc(var(--u) * 10.5), 19vh);
   border: 0; padding: 0; background: none; cursor: pointer; text-align: center;
   transition: transform .28s cubic-bezier(.2, .8, .2, 1);
 }
@@ -233,3 +235,37 @@ h1 span {
 
 .vial-grad li b { position: absolute; right: 110%; top: -.65em; font: 700 calc(var(--u) * .7)/1 var(--face); color: var(--tape); font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) { .vial-grad li b { display: none; } }
+
+/* The circuit panel: the 135 MANC neurons, lit by modeled activity */
+.rack-side { align-self: end; }
+.circuit { margin-top: calc(var(--u) * .8); }
+.circuit h2 { margin: 0 0 calc(var(--u) * .4); font-size: calc(var(--u) * .95); font-weight: 800; font-stretch: 87%; text-transform: uppercase; }
+#circuit { display: block; width: 100%; height: calc(var(--u) * 6.5); }
+.circuit-note { margin: calc(var(--u) * .3) 0 0; font-size: calc(var(--u) * .72); color: var(--muted); }
+
+/* What the eye reports, in Archery */
+.eye-tag {
+  position: absolute; right: 4%; bottom: calc(var(--u) * 3.4); margin: 0; padding: .35em .9em .3em;
+  background: var(--blue); color: var(--ink); font: 400 calc(var(--u) * 1)/1.1 var(--marker);
+  transform: rotate(-2deg); box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
+}
+.eye-modes { position: absolute; right: 4%; bottom: calc(var(--u) * .4); flex-wrap: wrap; justify-content: flex-end; }
+.eye-modes .tape-button[aria-checked="true"] { background: var(--tape); outline: 2px solid var(--ink); outline-offset: -5px; }
+
+/* Presenter mode: the story caption across the top of the pad */
+.presenter {
+  position: absolute; left: 50%; top: 0; z-index: 2; transform: translateX(-50%) rotate(-1deg);
+  max-width: 92%; padding: .5em 1.1em .45em; border: 0; cursor: pointer; white-space: pre;
+  background: var(--tape); color: var(--ink); font: 400 calc(var(--u) * 1.35)/1.15 var(--marker);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .55); text-align: center; white-space: normal;
+}
+
+.rack { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+
+.circuit-note kbd { padding: 0 .35em; border: 1px solid var(--muted); border-radius: 3px; font: inherit; }
+@media (max-width: 900px) {
+  .presenter { font-size: 14px; max-width: 94%; }
+  .eye-tag { font-size: 12px; }
+  .rack { gap: 6px; }
+  .vial { width: 62px; }
+}

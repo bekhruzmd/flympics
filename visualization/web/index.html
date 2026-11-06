@@ -17,6 +17,13 @@
     <canvas id="scene"></canvas>
     <p class="scale-bar" aria-hidden="true"><i></i><span>1 body length ≈ 2.5 mm</span></p>
     <p class="cheat" id="cheat" hidden>Fly mode: cheat, picture only</p>
+    <p class="eye-tag" id="eye-tag" hidden></p>
+    <div class="mode eye-modes" id="eye-modes" role="radiogroup" aria-label="The fly's eye" hidden>
+      <button class="tape-button" type="button" role="radio" data-eye="eye" aria-checked="true">Eye open</button>
+      <button class="tape-button" type="button" role="radio" data-eye="eye_blind" aria-checked="false">Blindfold</button>
+      <button class="tape-button" type="button" role="radio" data-eye="eye_swapped" aria-checked="false">Swap L/R</button>
+    </div>
+    <button class="presenter" id="presenter" type="button" hidden></button>
   </section>
 
   <aside class="readouts" aria-label="Run readouts">
@@ -51,13 +58,21 @@
   </div>
 
   <section class="rack-area" aria-labelledby="rack-title">
-    <h2 id="rack-title">Pull a vial to load its run</h2>
+    <div class="rack-side">
+      <h2 id="rack-title">Pull a vial to load its run</h2>
+      <section class="circuit" aria-labelledby="circuit-title">
+        <h2 id="circuit-title">The real circuit</h2>
+        <canvas id="circuit" role="img" aria-label="Modeled activity of the 135 MANC neurons, by role"></canvas>
+        <p class="circuit-note" id="circuit-note">135 MANC neurons, modeled activity 0 to 1</p>
+        <p class="circuit-note">Press <kbd>P</kbd> for presenter mode</p>
+      </section>
+    </div>
     <div class="rack" id="rack" role="radiogroup" aria-labelledby="rack-title"></div>
   </section>
 
   <footer class="fine-print">
     <p><b>Real:</b> the 135-neuron front-leg circuit and its 2,770 connections (MANC v1.2.1), and the fly's body, scanned by micro-CT (NeuroMechFly, FlyGym, Apache-2.0).</p>
-    <p><b>Modeled:</b> the race and its physics, read as 1 sim metre = 1 body length; the six-leg gait and the wingbeat are hand-made animation, not output of the circuit. Flight is not in the race physics. <span id="style-note">Human style is a cartoon: a fruit fly does not run on two legs or swing its front legs like arms; the poses follow typical human sprint, hurdle and front-crawl joint angles.</span> <span id="event-note"></span></p>
+    <p><b>Modeled:</b> the race and its physics, read as 1 sim metre = 1 body length; the six-leg gait and the wingbeat are hand-made animation, not output of the circuit. Flight is not in the race physics. <span id="style-note">Human style is a cartoon: flies don't run on two legs; the poses follow human joint angles.</span> <span id="event-note"></span></p>
   </footer>
 </main>
 <script type="module" src="fly3d-page.js"></script>

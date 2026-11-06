@@ -12,12 +12,49 @@ from experiments.run_sprint import run
 from events.hurdles import Hurdles
 from events.swimming import Swimming
 from brain.connectome import load_manc_front_leg_circuit
+from brain.controller import MODELS_DIR, FlyBrainController
+from brain.eye import EYE_CALIBRATION, BlindfoldedEye, FlyVisWindEye, SwappedEye
+import numpy as np
 
 
 HURDLES_CONTROLLERS = ('fly', 'rule', 'nocoast', 'random')
 SWIMMING_CONTROLLERS = ('fly', 'rule', 'full_strokes', 'random')
 ARCHERY_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
 STEEPLECHASE_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
+
+
+ARCHERY_EYE_POLICY = MODELS_DIR / 'archery_eye.json'
+# The eye-trained Archery fly, and the same fly with its eye blindfolded or reversed.
+EYE_VARIANTS = {'eye': FlyVisWindEye, 'eye_blind': BlindfoldedEye, 'eye_swapped': SwappedEye}
+
+
+def event_run(module, name: str, seed: int, *args, controller=None) -> list[dict]:
+    """An event runner's records, plus each step's neuron activity when a fly brain plays.
+
+    Activity is rounded to two decimals to keep the page's download small; the run itself
+    is unchanged (the activity is read after each decision, never fed back).
+    """
+    controller = controller if controller is not None else module.make_controller(name)
+    states = None
+    if isinstance(controller, FlyBrainController):
+        states, act = [], controller.act
+
+        def act_and_record(observation):
+            action = act(observation)
+            states.append(np.round(controller.network.state, 2).tolist())
+            return action
+        controller.act = act_and_record
+    records = module.run(name, seed, *args, controller=controller)
+    if states is not None:
+        for record, state in zip(records, states):
+            record['neuron_activity'] = state
+    return records
+
+
+def eye_fly(variant: str) -> FlyBrainController:
+    controller = FlyBrainController.from_policy(ARCHERY_EYE_POLICY)
+    controller.encoder.eye = EYE_VARIANTS[variant]()
+    return controller
 
 
 def viewer_payload(seed: int) -> dict:
@@ -38,14 +75,14 @@ def viewer_payload(seed: int) -> dict:
                 'distance': Hurdles().distance,
                 'dt': Hurdles().dt,
                 'hurdles': list(run_hurdles.course('benchmark', seed)),
-                'runs': {name: run_hurdles.run(name, seed, 'benchmark')
+                'runs': {name: event_run(run_hurdles, name, seed, 'benchmark')
                          for name in HURDLES_CONTROLLERS},
             },
             'swimming': {
                 'distance': Swimming().distance,
                 'dt': Swimming().dt,
                 'pool_length': Swimming().pool_length,
-                'runs': {name: run_swimming.run(name, seed) for name in SWIMMING_CONTROLLERS},
+                'runs': {name: event_run(run_swimming, name, seed) for name in SWIMMING_CONTROLLERS},
             },
             'steeplechase': {
                 'distance': Steeplechase().distance,
@@ -53,7 +90,7 @@ def viewer_payload(seed: int) -> dict:
                 'hurdles': list(BARRIERS),
                 'water': sorted(WATER),
                 'pit_length': Steeplechase().pit_length,
-                'runs': {name: run_steeplechase.run(name, seed) for name in STEEPLECHASE_CONTROLLERS},
+                'runs': {name: event_run(run_steeplechase, name, seed) for name in STEEPLECHASE_CONTROLLERS},
             },
             'archery': {
                 'dt': Archery().dt,
@@ -61,7 +98,9 @@ def viewer_payload(seed: int) -> dict:
                 'max_points': Archery().arrows * Archery().rings,
                 'ring_width': Archery().ring_width,
                 'rings': Archery().rings,
-                'runs': {name: run_archery.run(name, seed) for name in ARCHERY_CONTROLLERS},
+                'runs': {**{name: event_run(run_archery, name, seed) for name in ARCHERY_CONTROLLERS},
+                         **{name: event_run(run_archery, name, seed, controller=eye_fly(name)) for name in EYE_VARIANTS}},
+                'eye': json.loads(EYE_CALIBRATION.read_text()),
             },
         },
     }

@@ -35,15 +35,19 @@ def test_activity_recording_preserves_simulation():
              if key not in ('neuron_activity', 'motor_threshold')} for row in recorded] == run('trained')
 
 
+def without_activity(rows):
+    return [{k: v for k, v in row.items() if k != 'neuron_activity'} for row in rows]
+
+
 def test_viewer_event_runs_match_their_runners():
     from experiments import run_hurdles, run_swimming
     from experiments.serve_view import HURDLES_CONTROLLERS, SWIMMING_CONTROLLERS
     events = viewer_payload(7)['events']
     assert events['hurdles']['hurdles'] == list(run_hurdles.course('benchmark', 7))
     for name in HURDLES_CONTROLLERS:
-        assert events['hurdles']['runs'][name] == run_hurdles.run(name, 7, 'benchmark')
+        assert without_activity(events['hurdles']['runs'][name]) == run_hurdles.run(name, 7, 'benchmark')
     for name in SWIMMING_CONTROLLERS:
-        assert events['swimming']['runs'][name] == run_swimming.run(name, 7)
+        assert without_activity(events['swimming']['runs'][name]) == run_swimming.run(name, 7)
     assert events['swimming']['pool_length'] == 50.0
 
 
@@ -52,8 +56,21 @@ def test_viewer_archery_and_steeplechase_match_their_runners():
     from experiments.serve_view import ARCHERY_CONTROLLERS, STEEPLECHASE_CONTROLLERS
     events = viewer_payload(7)['events']
     for name in ARCHERY_CONTROLLERS:
-        assert events['archery']['runs'][name] == run_archery.run(name, 7)
+        assert without_activity(events['archery']['runs'][name]) == run_archery.run(name, 7)
     for name in STEEPLECHASE_CONTROLLERS:
-        assert events['steeplechase']['runs'][name] == run_steeplechase.run(name, 7)
+        assert without_activity(events['steeplechase']['runs'][name]) == run_steeplechase.run(name, 7)
     assert events['archery']['max_points'] == 60
     assert all(events['steeplechase']['hurdles'][i] for i in events['steeplechase']['water'])
+
+
+def test_viewer_eye_flies_and_activity():
+    from brain.connectome import load_manc_front_leg_circuit
+    from experiments.serve_view import EYE_VARIANTS
+    archery = viewer_payload(7)['events']['archery']
+    size = load_manc_front_leg_circuit().size
+    for name in EYE_VARIANTS:
+        rows = archery['runs'][name]
+        assert all(len(row['neuron_activity']) == size for row in rows)
+    assert 'neuron_activity' not in archery['runs']['rule'][0]
+    assert archery['runs']['eye'][-1]['total_points'] >= archery['runs']['eye_blind'][-1]['total_points']
+    assert archery['eye']['wind'][0] == -4.0

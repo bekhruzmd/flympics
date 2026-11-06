@@ -64,3 +64,17 @@ class ArcheryEyeEncoder(ArcheryEncoder):
             np.clip(self.eye(observation["wind"]), -1.0, 1.0),
             np.clip(observation["draw"], 0.0, 1.0),
         ])
+
+
+class BlindfoldedEye(FlyVisWindEye):
+    """The same eye, blindfolded: it always reports no wind. For showing the fly needs it."""
+
+    def __call__(self, wind: float) -> float:
+        return 0.0
+
+
+class SwappedEye(FlyVisWindEye):
+    """The same eye with left and right swapped."""
+
+    def __call__(self, wind: float) -> float:
+        return super().__call__(-wind)

@@ -59,7 +59,7 @@ const EVENTS = {
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// ---------- Scene: black epoxy bench, a lit white CO2 pad, the fly ----------
+// ---------- Scene: a full-size venue on the black bench, and the fly ----------
 const canvas = $('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -78,8 +78,11 @@ controls.enableZoom = false;  // the wheel scrolls the page; drag still orbits
 controls.target.set(0, 0.5, 0);
 controls.maxPolarAngle = Math.PI * 0.47;
 
-scene.add(new THREE.HemisphereLight(0xfff8ec, 0x1a1b18, 0.55));
-const ring = new THREE.SpotLight(0xfffaf0, 140, 30, Math.PI / 7, 0.55, 1.6);  // microscope ring light
+scene.add(new THREE.HemisphereLight(0xfff8ec, 0x1a1b18, 0.9));
+const floodlight = new THREE.DirectionalLight(0xfff4e2, 1.1);  // lights the whole venue; the spot follows the fly
+floodlight.position.set(-20, 30, 25);
+scene.add(floodlight);
+const ring = new THREE.SpotLight(0xfffaf0, 120, 30, Math.PI / 6, 0.6, 1.6);  // follows the fly and casts its shadow
 ring.position.set(0.6, 11, 2.2);
 ring.castShadow = true;
 ring.shadow.mapSize.set(2048, 2048);
@@ -104,26 +107,77 @@ function noiseTexture(size, base, speck, count, alpha) {
   return t;
 }
 
-// The surface slides under the fly like a treadmill: one texture tile per body length.
-const PAD_RADIUS = 4.6, BODY_LENGTH_MM = 2.5;
-const tiles = (2 * PAD_RADIUS) / BODY_LENGTH_MM;
-const porous = noiseTexture(256, '#f3f1ea', '120,116,104', 5200, 0.16);
-const ripples = noiseTexture(256, '#7fb2c9', '235,248,255', 900, 0.5);
-porous.repeat.set(tiles, tiles); ripples.repeat.set(tiles, tiles);
-const padTop = new THREE.MeshStandardMaterial({ map: porous, roughness: 0.95 });
-const waterTop = new THREE.MeshStandardMaterial({ map: ripples, roughness: 0.15, metalness: 0.05 });
+// Venues are built at full length, one body length (BL) = 2.5 mm, and the camera follows the
+// fly down them. x is distance along the course; the fly runs in the middle lane (z = 0).
+const BODY_LENGTH_MM = 2.5, LANE = 3.0, LANES = 5, HALF_WIDTH = (LANE * LANES) / 2;
+const ripples = noiseTexture(256, '#5f9fbf', '225,242,255', 1400, 0.45);
+const trackGrain = noiseTexture(256, '#a9493a', '60,20,14', 3800, 0.22);
 const padSide = new THREE.MeshStandardMaterial({ color: 0xd9d5c6, roughness: 0.9 });
-const pad = new THREE.Mesh(new THREE.CylinderGeometry(PAD_RADIUS, PAD_RADIUS, 0.18, 96), [padSide, padTop, padSide]);
-pad.position.y = -0.09; pad.receiveShadow = true;
-scene.add(pad);
+const lineWhite = new THREE.MeshStandardMaterial({ color: 0xf1efe6, roughness: 0.8 });
+const venue = new THREE.Group();
+scene.add(venue);
+scene.fog = new THREE.Fog(0x121311, 40, 95);  // far parts of long courses fade into the bench
+
+function strip(length, width, x, z, material, y = 0.004) {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(length, width), material);
+  mesh.rotation.x = -Math.PI / 2; mesh.position.set(x, y, z); mesh.receiveShadow = true;
+  venue.add(mesh);
+  return mesh;
+}
+
+function buildTrack(lengthBL) {
+  const length = lengthBL * BODY_LENGTH_MM, runOff = 30;
+  const grain = trackGrain.clone(); grain.needsUpdate = true;
+  grain.repeat.set((length + 2 * runOff) / BODY_LENGTH_MM, (2 * HALF_WIDTH + 3) / BODY_LENGTH_MM);
+  strip(length + 2 * runOff, 2 * HALF_WIDTH + 3, length / 2, 0, new THREE.MeshStandardMaterial({ map: grain, roughness: 0.95 }), 0);
+  for (let i = 0; i <= LANES; i++) strip(length + 2 * runOff, 0.12, length / 2, -HALF_WIDTH + i * LANE, lineWhite);
+  strip(0.25, 2 * HALF_WIDTH, 0, 0, lineWhite);                 // start line
+  strip(0.6, 2 * HALF_WIDTH, length, 0, lineWhite);             // finish line
+  for (let m = 10; m < lengthBL; m += 10) {                      // a mark every 10 BL on both edges
+    for (const z of [-HALF_WIDTH - 0.6, HALF_WIDTH + 0.6]) strip(0.12, 0.8, m * BODY_LENGTH_MM, z, lineWhite);
+  }
+}
+
+function buildPool(lengthBL) {
+  const length = lengthBL * BODY_LENGTH_MM, deck = 4, wall = 0.9;
+  const water = ripples.clone(); water.needsUpdate = true;
+  water.repeat.set(length / BODY_LENGTH_MM, (2 * HALF_WIDTH) / BODY_LENGTH_MM);
+  strip(length, 2 * HALF_WIDTH, length / 2, 0, new THREE.MeshStandardMaterial({ map: water, roughness: 0.12, metalness: 0.05 }), 0);
+  const tile = new THREE.MeshStandardMaterial({ color: 0xe9e6dc, roughness: 0.85 });
+  const box = (w, d, x, z) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, wall, d), tile);
+    mesh.position.set(x, wall / 2 - 0.35, z); mesh.receiveShadow = true; venue.add(mesh);
+  };
+  box(deck, 2 * HALF_WIDTH + 2 * deck, -deck / 2, 0);              // start wall
+  box(deck, 2 * HALF_WIDTH + 2 * deck, length + deck / 2, 0);      // turn wall
+  box(length, deck, length / 2, -HALF_WIDTH - deck / 2);
+  box(length, deck, length / 2, HALF_WIDTH + deck / 2);
+  // Lane ropes: floats in alternating colours between the lanes.
+  const floats = [new THREE.MeshStandardMaterial({ color: 0xe8628f }), new THREE.MeshStandardMaterial({ color: 0xf1efe6 }), new THREE.MeshStandardMaterial({ color: 0x5b93d6 })];
+  const bead = new THREE.SphereGeometry(0.16, 10, 8);
+  for (let i = 1; i < LANES; i++) {
+    const z = -HALF_WIDTH + i * LANE;
+    for (let x = 0.4, k = 0; x < length; x += 0.4, k++) {
+      const mesh = new THREE.Mesh(bead, floats[(Math.floor(k / 6)) % floats.length]);
+      mesh.position.set(x, 0.06, z); venue.add(mesh);
+    }
+  }
+}
+
+function buildRange() {
+  const grass = noiseTexture(256, '#3f6a35', '20,40,16', 4000, 0.3);
+  grass.repeat.set(16, 10);
+  strip(70, 40, 12, 0, new THREE.MeshStandardMaterial({ map: grass, roughness: 1 }), 0);
+  strip(0.3, 14, 0.8, 0, lineWhite);                            // shooting line
+}
 
 // Hurdles: tape-white bars half a body length tall, placed from the recorded course.
 const hurdleMaterial = new THREE.MeshStandardMaterial({ color: 0xf1efe6, roughness: 0.7, transparent: true });
 const hurdleInk = new THREE.MeshStandardMaterial({ color: 0x151513, roughness: 0.7, transparent: true });
 const waterTape = new THREE.MeshStandardMaterial({ color: 0x5b93d6, roughness: 0.6, transparent: true });
 const pitMaterial = new THREE.MeshStandardMaterial({ color: 0x7fb2c9, roughness: 0.15, metalness: 0.05 });
-function makeHurdle(pitLength = 0) {
-  const h = 0.5 * BODY_LENGTH_MM, w = 2.6, group = new THREE.Group();
+function makeHurdle(pitLength = 0, w = LANE * 0.85) {
+  const h = 0.5 * BODY_LENGTH_MM, group = new THREE.Group();
   if (pitLength) {
     // Steeplechase water jump: the pit starts right behind the barrier.
     const pit = new THREE.Mesh(new THREE.PlaneGeometry(pitLength * BODY_LENGTH_MM, w), pitMaterial);
@@ -142,17 +196,9 @@ function makeHurdle(pitLength = 0) {
   group.traverse(o => { o.castShadow = true; });
   return group;
 }
-const hurdleGroup = new THREE.Group();
-scene.add(hurdleGroup);
-
-// Swimming: an ink line across the dish marks the pool wall where the turn happens.
-const wallMarker = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 2 * PAD_RADIUS * 0.9), hurdleInk);
-wallMarker.position.y = 0.01;
-scene.add(wallMarker);
-
-// Archery: a ring target at the far side of the pad. Landings are horizontal offsets in
+// Archery: a ring target down the range. Landings are horizontal offsets in
 // target units (one ring = ring_width); TARGET_SCALE turns them into millimetres on the face.
-const TARGET_X = 3.3, TARGET_Y = 1.7, TARGET_RADIUS = 1.15;
+const TARGET_X = 16, TARGET_Y = 1.9, TARGET_RADIUS = 1.6;
 let TARGET_SCALE = 1;
 function ringTexture(rings) {
   const c = document.createElement('canvas'); c.width = c.height = 512;
@@ -174,7 +220,7 @@ const targetLeg = new THREE.Mesh(new THREE.BoxGeometry(0.1, TARGET_Y, 0.1), hurd
 targetLeg.position.set(0.12, -TARGET_Y / 2, 0);
 target.add(targetFace, targetBack, targetLeg);
 target.position.set(TARGET_X, TARGET_Y, 0);
-target.rotation.y = 1.2;  // turned partly toward the viewer so the rings and hits read
+target.rotation.y = 0.9;  // turned partly toward the viewer so the rings and hits read
 target.traverse(o => { o.castShadow = true; });
 const hits = new THREE.Group(); target.add(hits);
 const aimDot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), new THREE.MeshStandardMaterial({ color: 0xe8628f, emissive: 0x5a1f33 }));
@@ -199,10 +245,13 @@ function setAction(text, state) {
   $('action-tape').dataset.action = state ?? '';
 }
 
+// The fly rides in a holder that moves it along the course and turns it at the pool wall.
+const holder = new THREE.Group();
+scene.add(holder);
 let fly;
 try {
   fly = await loadFly();
-  scene.add(fly.object);
+  holder.add(fly.object);
 } catch (error) {
   setAction('Fly model failed to load', 'error');
   throw error;
@@ -217,21 +266,22 @@ function resize() {
   frameThePad();
 }
 
-// Keep the whole pad and its rim inside the canvas at any aspect, so the bench shows all round it.
+// The camera keeps a fixed view of the area around the fly and slides along with it; dragging
+// still orbits. Jumping events and the upright Human style get extra headroom.
 const VIEW_DIRECTION = new THREE.Vector3(6.4, 5.1, 8.0).normalize();
+const VIEW_RADIUS = 7;
 function frameThePad() {
-  // Hurdles need headroom for a full jump (up to one body length, 2.5 mm).
-  // Human style stands upright (about one body length tall) and jumps from that height.
   const upright = style === 'human' && eventId !== 'swimming' ? BODY_LENGTH_MM * 0.8 : 0;
   const jumping = eventId === 'hurdles' || eventId === 'steeplechase';
   const headroom = (jumping ? BODY_LENGTH_MM : 0) + upright;
-  controls.target.y = 0.5 + headroom * 0.5;
+  const radius = eventId === 'archery' ? TARGET_X * 0.62 : VIEW_RADIUS;
+  controls.target.set(focusX(), 0.5 + headroom * 0.5, 0);
   const halfV = THREE.MathUtils.degToRad(camera.fov / 2);
   const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
-  // The disc fills about 88% of the canvas width, rim clear of every edge.
-  const distance = Math.max(PAD_RADIUS / 0.88 / Math.tan(halfH), (PAD_RADIUS * 0.5 + 1.1 + headroom * 0.75) / Math.tan(halfV));
+  const distance = Math.max(radius / Math.tan(halfH), (radius * 0.5 + 1.1 + headroom * 0.75) / Math.tan(halfV));
   camera.position.copy(VIEW_DIRECTION).multiplyScalar(distance).add(controls.target);
 }
+const focusX = () => eventId === 'archery' ? TARGET_X / 2 : holder.position.x;
 let payload = null, eventId = 'sprint', race = null, selected = 'rule', style = 'human';
 new ResizeObserver(resize).observe(canvas);
 resize();
@@ -312,10 +362,23 @@ function selectEvent(id) {
   for (const tab of $('events').children) tab.setAttribute('aria-checked', String(tab.dataset.id === id));
   $('event-title').textContent = EVENTS[id].title;
   $('event-note').textContent = EVENTS[id].note;
-  pad.material[1] = id === 'swimming' ? waterTop : padTop;
-  hurdleGroup.clear();
-  if (id === 'hurdles') hurdleGroup.add(...data.hurdles.map(() => makeHurdle()));
-  if (id === 'steeplechase') hurdleGroup.add(...data.hurdles.map((_, i) => makeHurdle(data.water.includes(i) ? data.pit_length : 0)));
+  venue.clear();
+  if (id === 'swimming') buildPool(data.pool_length);
+  else if (id === 'archery') buildRange();
+  else buildTrack(data.distance);
+  if (id === 'hurdles') {
+    // Hurdles in every lane, at the recorded course positions.
+    for (const h of data.hurdles) for (let lane = 0; lane < LANES; lane++) {
+      const hurdle = makeHurdle(); hurdle.position.set(h * BODY_LENGTH_MM, 0, -HALF_WIDTH + (lane + 0.5) * LANE); venue.add(hurdle);
+    }
+  }
+  if (id === 'steeplechase') {
+    // Steeplechase barriers span the track; water jumps have the pit right behind.
+    data.hurdles.forEach((h, i) => {
+      const barrier = makeHurdle(data.water.includes(i) ? data.pit_length : 0, 2 * HALF_WIDTH);
+      barrier.position.x = h * BODY_LENGTH_MM; venue.add(barrier);
+    });
+  }
   target.visible = id === 'archery';
   if (id === 'archery') {
     targetFace.material.map?.dispose();
@@ -327,11 +390,12 @@ function selectEvent(id) {
   $('distance-unit').textContent = scored ? `/ ${data.max_points}` : 'BL';
   $('speed-label').textContent = scored ? 'Crosswind' : 'Speed';
   $('speed-unit').textContent = scored ? '' : 'BL/s';
-  wallMarker.visible = id === 'swimming';
   frameThePad();
   buildRuler(Math.ceil(Math.max(...Object.values(data.runs).map(run => run.at(-1).simulation_time))));
   buildRack();
   selectRun(['sprint', 'steeplechase', 'archery'].includes(id) ? 'trained' : 'rule');
+  index = 0; placeFly(0);
+  frameThePad();
 }
 
 // ---------- Rack of vials ----------
@@ -410,24 +474,24 @@ function sample(at) {
   return { position: mix('position'), velocity: mix('velocity'), height: mix('height'), time: mix('simulation_time'), action: a.action, airborne: Boolean(a.airborne) || mix('height') > 0, record: a, i };
 }
 
-// Things on the course sit at (their position - the fly's) body lengths ahead, and fade out at the rim.
-function placeOnCourse(object, ahead) {
-  const x = ahead * BODY_LENGTH_MM, edge = PAD_RADIUS * 0.82;
-  object.position.x = x;
-  const pit = object.userData.pit;
-  if (pit) {
-    // Trim the water pit so it never hangs over the pad's rim.
-    const start = Math.max(x, -edge), end = Math.min(x + pit.userData.length, edge);
-    pit.visible = end > start;
-    if (pit.visible) {
-      pit.scale.x = (end - start) / pit.userData.length;
-      pit.position.x = (start + end) / 2 - x;
-    }
-    object.visible = pit.visible || Math.abs(x) < edge;
-    object.children.forEach(child => { if (child !== pit) child.visible = Math.abs(x) < edge; });
-    return;
+// Where the fly is on the course. In the pool, the second length comes back the other way.
+function placeFly(position) {
+  let x = position * BODY_LENGTH_MM, heading = 0;
+  if (eventId === 'swimming' && race && position > race.pool_length) {
+    x = (2 * race.pool_length - position) * BODY_LENGTH_MM; heading = Math.PI;
   }
-  object.visible = Math.abs(x) < edge;
+  if (eventId === 'archery') x = 0;
+  holder.position.x = x;
+  holder.rotation.y = heading;
+}
+
+// Slide the camera and the lights with the fly, keeping whatever angle the viewer orbited to.
+function follow() {
+  const dx = focusX() - controls.target.x;
+  controls.target.x += dx; camera.position.x += dx;
+  ring.position.set(holder.position.x + 0.6, 11, 2.2);
+  ring.target.position.set(holder.position.x, 0, 0);
+  flyPoint.set(holder.position.x, 0.6, 0);
 }
 
 let last = performance.now(), wallTime = 0, lastRackUpdate = 0;
@@ -449,10 +513,10 @@ function frame(now) {
     $('ruler').style.setProperty('--progress', `${Math.min(100, (r.time / seconds) * 100)}%`);
     if (index > 0) setAction(r.action, r.action); else setAction('Ready', '');
   }
-  if ((eventId === 'hurdles' || eventId === 'steeplechase') && race) race.hurdles.forEach((h, i) => placeOnCourse(hurdleGroup.children[i], h - r.position));
+  placeFly(r.position);
+  follow();
   const archery = eventId === 'archery' && race && records.length;
   if (archery) placeArrows(records.slice(0, r.i + 1).filter(x => x.shot).map(x => x.landing), r.record.aim_offset);
-  if (eventId === 'swimming' && race) placeOnCourse(wallMarker, race.pool_length - r.position);
   const effort = Math.min(1, r.velocity / EVENTS[eventId].topSpeed);
   const human = style === 'human';
   const stride = human ? (eventId === 'swimming' ? 1.6 : 1.25) : STRIDE;  // body lengths per cycle
@@ -462,7 +526,6 @@ function frame(now) {
     draw: archery ? r.record.draw : 0,
     lift: flying ? 1.6 + (reducedMotion ? 0 : 0.05 * Math.sin(wallTime * 3)) : r.height * BODY_LENGTH_MM,  // recorded jump height
   });
-  porous.offset.x = ripples.offset.x = r.position;  // one tile per body length
   scaleBar.style.width = `${bodyLengthOnScreen().toFixed(1)}px`;
   $('time').textContent = r.time.toFixed(1);
   $('distance').textContent = archery ? String(r.record.total_points) : r.position.toFixed(1);

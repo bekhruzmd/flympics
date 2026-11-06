@@ -535,9 +535,16 @@ function eyeReport(wind) {
 function updateEyeTag(record) {
   const show = eventId === 'archery' && selected === 'eye' && record && race.eye;
   $('eye-tag').hidden = !show;
+  $('eye-panel').hidden = !show;
   if (!show) return;
+  const reported = eyeMode === 'eye_blind' ? 0 : eyeReport(record.wind);
+  const half = (Math.max(...race.eye.signal) - Math.min(...race.eye.signal)) / 2;
+  $('eye-needle').style.left = `${50 + 45 * Math.max(-1, Math.min(1, reported / half))}%`;
+  $('eye-note').textContent = eyeMode === 'eye_blind' ? 'Blindfolded: the eye reports no wind'
+    : eyeMode === 'eye_swapped' ? "FlyVis motion detectors, with left and right swapped"
+    : "What FlyVis's motion detectors report, fed into the leg circuit";
   if (eyeMode === 'eye_blind') { $('eye-tag').textContent = 'Eye blindfolded: it reports no wind'; return; }
-  const signal = eyeReport(record.wind);
+  const signal = reported;
   const side = Math.abs(signal) < 0.002 ? 'Eye: hardly any wind' : `Eye sees wind from the ${signal > 0 ? 'right' : 'left'}`;
   $('eye-tag').textContent = eyeMode === 'eye_swapped' ? `${side} (left and right swapped)` : side;
 }

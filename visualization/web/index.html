@@ -11,33 +11,8 @@
   <header class="masthead">
     <h1>Flympics<span id="event-title">100 body lengths</span></h1>
     <div class="events" id="events" role="radiogroup" aria-label="Event"></div>
-  </header>
-
-  <section class="pad-area" aria-label="The scanned fruit fly replaying the selected run">
-    <canvas id="scene"></canvas>
-    <p class="scale-bar" aria-hidden="true"><i></i><span>1 body length ≈ 2.5 mm</span></p>
-    <p class="cheat" id="cheat" hidden>Fly mode: cheat, picture only</p>
-    <p class="eye-tag" id="eye-tag" hidden></p>
-    <div class="mode eye-modes" id="eye-modes" role="radiogroup" aria-label="The fly's eye" hidden>
-      <button class="tape-button" type="button" role="radio" data-eye="eye" aria-checked="true">Eye open</button>
-      <button class="tape-button" type="button" role="radio" data-eye="eye_blind" aria-checked="false">Blindfold</button>
-      <button class="tape-button" type="button" role="radio" data-eye="eye_swapped" aria-checked="false">Swap L/R</button>
     </div>
-    <button class="presenter" id="presenter" type="button" hidden></button>
-  </section>
-
-  <aside class="readouts" aria-label="Run readouts">
-    <p class="tape tape-time"><span>Time</span><output id="time">0.0</output><small>s</small></p>
-    <p class="tape"><span id="distance-label">Distance</span><output id="distance">0.0</output><small id="distance-unit">BL</small></p>
-    <p class="tape"><span id="speed-label">Speed</span><output id="speed">0.0</output><small id="speed-unit">BL/s</small></p>
-    <p class="tape tape-action" id="action-tape"><span>Action</span><output id="action">Loading runs</output></p>
-    <div class="deck">
-      <button class="tape-button play" id="play" type="button" disabled aria-label="Play">
-        <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>
-        <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg>
-        <span id="play-label">Play</span>
-      </button>
-      <button class="tape-button fast" id="fast" type="button" aria-pressed="false">4× replay</button>
+    <div class="deck" aria-label="Animation">
       <div class="mode" role="radiogroup" aria-label="Animation style">
         <button class="tape-button" id="human-style" type="button" role="radio" aria-checked="true">Human style</button>
         <button class="tape-button" id="fly-style" type="button" role="radio" aria-checked="false">Fly legs</button>
@@ -47,10 +22,52 @@
         <button class="tape-button" id="fly-mode" type="button" role="radio" aria-checked="false">Fly</button>
       </div>
     </div>
+    <p class="hint">Press <kbd>P</kbd> for presenter mode</p>
+  </header>
+
+  <section class="pad-area" aria-label="The scanned fruit fly replaying the selected run">
+    <canvas id="scene"></canvas>
+    <div class="hud" aria-label="Run readouts">
+      <p class="tape tape-time"><span>Time</span><output id="time">0.0</output><small>s</small></p>
+      <p class="tape"><span id="distance-label">Distance</span><output id="distance">0.0</output><small id="distance-unit">BL</small></p>
+      <p class="tape"><span id="speed-label">Speed</span><output id="speed">0.0</output><small id="speed-unit">BL/s</small></p>
+      <p class="tape tape-action" id="action-tape"><span>Action</span><output id="action">Loading runs</output></p>
+    </div>
+    <p class="scale-bar" aria-hidden="true"><i></i><span>1 body length ≈ 2.5 mm</span></p>
+    <p class="cheat" id="cheat" hidden>Fly mode: cheat, picture only</p>
+    <p class="eye-tag" id="eye-tag" hidden></p>
+    <button class="presenter" id="presenter" type="button" hidden></button>
+  </section>
+
+
+  <aside class="brain-area" aria-label="What the fly's nervous system is doing">
+    <section class="eye-panel" id="eye-panel" aria-labelledby="eye-title" hidden>
+      <h2 id="eye-title">The eye</h2>
+      <div class="eye-gauge" aria-hidden="true"><span>Wind from the left</span><i id="eye-needle"></i><span>from the right</span></div>
+      <div class="mode eye-modes" id="eye-modes" role="radiogroup" aria-label="The fly's eye" hidden>
+        <button class="tape-button" type="button" role="radio" data-eye="eye" aria-checked="true">Eye open</button>
+        <button class="tape-button" type="button" role="radio" data-eye="eye_blind" aria-checked="false">Blindfold</button>
+        <button class="tape-button" type="button" role="radio" data-eye="eye_swapped" aria-checked="false">Swap L/R</button>
+      </div>
+      <p class="circuit-note" id="eye-note">What FlyVis's motion detectors report, fed into the leg circuit</p>
+    </section>
+    <section class="circuit" aria-labelledby="circuit-title">
+      <h2 id="circuit-title">The leg circuit</h2>
+      <canvas id="circuit" role="img" aria-label="Modeled activity of the 135 MANC neurons, by role"></canvas>
+      <p class="circuit-note" id="circuit-note">135 MANC neurons, modeled activity 0 to 1</p>
+    </section>
   </aside>
 
   <div class="ruler-area">
-    <label class="ruler-label" for="timeline">Time, seconds</label>
+    <div class="transport">
+      <button class="tape-button play" id="play" type="button" disabled aria-label="Play">
+        <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg>
+        <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg>
+        <span id="play-label">Play</span>
+      </button>
+      <button class="tape-button fast" id="fast" type="button" aria-pressed="false">4× replay</button>
+    </div>
+    <label class="ruler-label" for="timeline"><span class="sr-only">Time, </span>seconds</label>
     <div class="ruler" id="ruler">
       <input id="timeline" type="range" min="0" max="0" value="0" step="1" disabled>
       <ol class="ruler-ticks" id="ticks" aria-hidden="true"></ol>
@@ -60,12 +77,6 @@
   <section class="rack-area" aria-labelledby="rack-title">
     <div class="rack-side">
       <h2 id="rack-title">Pull a vial to load its run</h2>
-      <section class="circuit" aria-labelledby="circuit-title">
-        <h2 id="circuit-title">The real circuit</h2>
-        <canvas id="circuit" role="img" aria-label="Modeled activity of the 135 MANC neurons, by role"></canvas>
-        <p class="circuit-note" id="circuit-note">135 MANC neurons, modeled activity 0 to 1</p>
-        <p class="circuit-note">Press <kbd>P</kbd> for presenter mode</p>
-      </section>
     </div>
     <div class="rack" id="rack" role="radiogroup" aria-labelledby="rack-title"></div>
   </section>

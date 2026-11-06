@@ -13,6 +13,11 @@ from experiments.serve_view import (
     SWIMMING_CONTROLLERS,
     viewer_payload,
 )
+from events.archery import Archery
+from events.hurdles import Hurdles
+from events.pacing import Pacing400m
+from events.steeplechase import Steeplechase
+from events.swimming import Swimming
 
 
 EVENTS = {
@@ -20,26 +25,31 @@ EVENTS = {
         "controllers": PACING_CONTROLLERS,
         "runner": run_pacing.run,
         "score": run_pacing.score,
+        "event": Pacing400m,
     },
     "hurdles": {
         "controllers": HURDLES_CONTROLLERS,
         "runner": run_hurdles.run,
         "score": run_hurdles.score,
+        "event": Hurdles,
     },
     "swimming": {
         "controllers": SWIMMING_CONTROLLERS,
         "runner": run_swimming.run,
         "score": run_swimming.score,
+        "event": Swimming,
     },
     "steeplechase": {
         "controllers": STEEPLECHASE_CONTROLLERS,
         "runner": run_steeplechase.run,
         "score": run_steeplechase.score,
+        "event": Steeplechase,
     },
     "archery": {
         "controllers": ARCHERY_CONTROLLERS,
         "runner": run_archery.run,
         "score": run_archery.score,
+        "event": Archery,
     },
 }
 
@@ -69,7 +79,8 @@ def test_view_records_cover_every_event_controller_and_final_score(event_name):
         assert all(row["step"] == idx for idx, row in enumerate(rows, start=1))
         assert [row["simulation_time"] for row in rows]
         times = [row["simulation_time"] for row in rows]
-        assert all(abs(b - a - 0.1) < 1e-8 for a, b in zip(times, times[1:]))
+        dt = spec["event"]().dt
+        assert all(abs((b - a) - dt) < 1e-9 for a, b in zip(times, times[1:]))
         assert spec["score"](rows) == pytest.approx(spec["score"](rows))
 
         if "neuron_activity" in rows[0]:

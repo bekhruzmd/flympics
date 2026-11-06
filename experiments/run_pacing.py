@@ -13,10 +13,11 @@ from controllers.pacing_baselines import (AlwaysAccelerateController, AlwaysCoas
                                           SprintPacingController)
 from events.pacing import Pacing400m
 
-CONTROLLERS = ("rule", "always_acc", "always_coast", "random", "sprint_rule", "fly", "trained")
+CONTROLLERS = ("rule", "always_acc", "always_coast", "random", "sprint_rule", "fly", "trained", "trained_es", "trained_threshold")
 
 
 def make_controller(name: str) -> Controller:
+    es_policy = PACING_POLICY.with_name("pacing_es.json")
     return {
         "rule": PacingRuleController,
         "always_acc": AlwaysAccelerateController,
@@ -24,7 +25,9 @@ def make_controller(name: str) -> Controller:
         "random": RandomPacingController,
         "sprint_rule": SprintPacingController,
         "fly": FlyBrainController.pacing,
-        "trained": lambda: FlyBrainController.from_policy(PACING_POLICY),
+        "trained": lambda: FlyBrainController.from_policy(es_policy if es_policy.exists() else PACING_POLICY),
+        "trained_es": lambda: FlyBrainController.from_policy(es_policy),
+        "trained_threshold": lambda: FlyBrainController.from_policy(PACING_POLICY),
     }[name]()
 
 

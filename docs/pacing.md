@@ -55,20 +55,26 @@ Leaderboard:
 |----------|------------------------:|---------:|-------------:|-------------:|:----------------|
 | `rule` | **123.00** | 123.00 | 400.0 | 0.8 | Paced cruise at 3.3 m/s avoiding quadratic drag |
 | `random` (seed 7) | 129.70 | 129.70 | 400.0 | 2.8 | Stochastically alternates acceleration and coasting |
-| `trained` (fly) | 198.10 | 198.10 | 400.0 | 0.0 | MANC circuit with fitted threshold maintaining forward drive |
+| `trained` (fly) | 198.10 | 198.10 | 400.0 | 0.0 | Floors it without pacing; loses to random (198.10 s vs 129.70 s) |
 | `fly` (untrained) | 635.34 (DNF) | 240.00 | 4.7 | 99.4 | Initial threshold causes circuit to coast early and time out |
 
 ## 3. Train the 400 m pacing fly
 
-To train the artificial motor threshold against the 400 m pacing race:
-
+### Motor threshold grid search
 ```powershell
 python -m experiments.train_pacing
 ```
+This performs a deterministic 34-point grid search over candidate motor thresholds, recording every trial to `models/pacing.json`.
 
-This performs a deterministic 34-point grid search over candidate motor thresholds,
-recording every trial to `models/pacing.json`. The untrained fly times out at 4.7 m (score 635.34),
-while the trained policy achieves full 400 m race completion in 198.10 s.
+**Why threshold training floors it:**
+Threshold training cannot make the circuit react to its remaining energy budget. The starting encoder weights $(0.90, 0.25, 0.45)$ deliver constant excitation, so extensor activity consistently exceeds flexor activity by $\sim 0.005$. Any threshold below $0.005$ causes the fly to continuously accelerate, whereas any threshold above $0.005$ causes it to coast to an immediate halt at 4.7 m. Consequently, the threshold-trained fly simply floors it flat out—finishing in 198.10 s (identical to `always_acc`) and losing to `random` (129.70 s).
+
+### Evolution Strategies (ES) training
+To train the sensory input weights so the fly can sense its energy budget:
+```powershell
+python -m experiments.train_pacing_es --imitation-generations 0 --threshold-sigma 0.00001 --generations 60
+```
+This tunes the 72 sensory encoder weights alongside the motor threshold using OpenAI-ES antithetic sampling across 60 generations.
 
 ## 4. Read race logs
 

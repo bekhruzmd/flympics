@@ -70,3 +70,15 @@ def test_trained_fly_completes_race():
     assert final["position"] == pytest.approx(400.0)
     assert final["simulation_time"] == pytest.approx(198.1)
     assert score(records) == pytest.approx(198.1)
+
+
+def test_es_policy_loads_and_runs():
+    es_policy = PACING_POLICY.with_name("pacing_es.json")
+    assert es_policy.exists()
+    controller = FlyBrainController.from_policy(es_policy)
+    records = run(controller=controller, seed=7)
+    final = records[-1]
+    assert final["position"] == pytest.approx(400.0)
+    assert final["simulation_time"] == pytest.approx(198.1)
+    assert score(records) == pytest.approx(198.1)
+

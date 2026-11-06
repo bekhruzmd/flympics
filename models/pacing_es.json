@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "event": "pacing",
+  "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights and band thresholds: teacher-forced imitation of the rule baseline (thresholds fitted exactly per candidate), then the event outcome; connectome and dynamics frozen",
+  "encoder": "pacing_es_encoder.csv",
+  "inputs": [
+    "distance",
+    "velocity",
+    "energy"
+  ],
+  "actions": [
+    "COAST",
+    "ACCELERATE"
+  ],
+  "thresholds": [
+    8.62e-06
+  ],
+  "hyperparameters": {
+    "generations": 60,
+    "pairs": 24,
+    "population": 49,
+    "weight_sigma": 0.3,
+    "threshold_sigma": 1e-05,
+    "lr": 0.05,
+    "seed": 0,
+    "train_seeds": [
+      0
+    ],
+    "imitation_generations": 0,
+    "start_sigma": 0.5
+  },
+  "train_fitness": -198.1,
+  "training_seconds": 132.6,
+  "trained": {
+    "time_or_score": 198.1,
+    "finished": true
+  },
+  "untrained": {
+    "time_or_score": 198.1,
+    "finished": true
+  }
+}

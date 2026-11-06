@@ -31,12 +31,16 @@
       <p class="tape tape-time"><span>Time</span><output id="time">0.0</output><small>s</small></p>
       <p class="tape"><span id="distance-label">Distance</span><output id="distance">0.0</output><small id="distance-unit">BL</small></p>
       <p class="tape"><span id="speed-label">Speed</span><output id="speed">0.0</output><small id="speed-unit">BL/s</small></p>
+      <p class="tape tape-versus" id="versus-tape" hidden><span id="versus-label">Opponent</span><output id="versus">0</output><small>/ 60</small></p>
       <p class="tape tape-action" id="action-tape"><span>Action</span><output id="action">Loading runs</output></p>
     </div>
     <p class="scale-bar" aria-hidden="true"><i></i><span>1 body length ≈ 2.5 mm</span></p>
     <p class="cheat" id="cheat" hidden>Fly mode: cheat, picture only</p>
     <p class="eye-tag" id="eye-tag" hidden></p>
     <button class="presenter" id="presenter" type="button" hidden></button>
+    <p class="target-cam-label" id="target-cam" hidden>Target cam</p>
+    <p class="lane-tag" id="lane-main" hidden></p>
+    <p class="lane-tag lane-tag-rival" id="lane-rival" hidden></p>
   </section>
 
 
@@ -77,6 +81,7 @@
   <section class="rack-area" aria-labelledby="rack-title">
     <div class="rack-side">
       <h2 id="rack-title">Pull a vial to load its run</h2>
+      <label class="rival-pick" id="rival-pick" hidden>Opponent in the next lane <select id="rival"></select></label>
     </div>
     <div class="rack" id="rack" role="radiogroup" aria-labelledby="rack-title"></div>
   </section>

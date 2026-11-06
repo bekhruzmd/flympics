@@ -222,33 +222,89 @@ function ringTexture(rings) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
-const target = new THREE.Group();
-const targetFace = new THREE.Mesh(new THREE.CircleGeometry(TARGET_RADIUS, 64), new THREE.MeshStandardMaterial({ roughness: 0.8 }));
-targetFace.rotation.y = -Math.PI / 2;  // faces the fly, which looks along +x
-const targetBack = new THREE.Mesh(new THREE.CylinderGeometry(TARGET_RADIUS * 1.04, TARGET_RADIUS * 1.04, 0.12, 64), padSide);
-targetBack.rotation.z = Math.PI / 2; targetBack.position.x = 0.07;
-const targetLeg = new THREE.Mesh(new THREE.BoxGeometry(0.1, TARGET_Y, 0.1), hurdleInk);
-targetLeg.position.set(0.12, -TARGET_Y / 2, 0);
-target.add(targetFace, targetBack, targetLeg);
-target.position.set(TARGET_X, TARGET_Y, 0);
-target.rotation.y = 0.9;  // turned partly toward the viewer so the rings and hits read
-target.traverse(o => { o.castShadow = true; });
-const hits = new THREE.Group(); target.add(hits);
-const aimDot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), new THREE.MeshStandardMaterial({ color: 0xe8628f, emissive: 0x5a1f33 }));
-target.add(aimDot);
-scene.add(target);
-function placeArrows(landings, aim) {
-  while (hits.children.length < landings.length) {
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.9, 8), hurdleInk);
-    shaft.rotation.z = Math.PI / 2; shaft.castShadow = true;
-    hits.add(shaft);
+// Two lanes, each with a target and its own arrows: the selected fly and its opponent.
+const LANE_Z = { main: 0, rival: -5 };
+function makeTarget(z) {
+  const group = new THREE.Group();
+  const face = new THREE.Mesh(new THREE.CircleGeometry(TARGET_RADIUS, 64), new THREE.MeshStandardMaterial({ roughness: 0.8 }));
+  face.rotation.y = -Math.PI / 2;  // faces the archers, who look along +x
+  const back = new THREE.Mesh(new THREE.CylinderGeometry(TARGET_RADIUS * 1.04, TARGET_RADIUS * 1.04, 0.12, 64), padSide);
+  back.rotation.z = Math.PI / 2; back.position.x = 0.07;
+  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, TARGET_Y, 0.1), hurdleInk);
+  leg.position.set(0.12, -TARGET_Y / 2, 0);
+  const hits = new THREE.Group();
+  const aimDot = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), new THREE.MeshStandardMaterial({ color: 0xe8628f, emissive: 0x5a1f33 }));
+  group.add(face, back, leg, hits, aimDot);
+  group.position.set(TARGET_X, TARGET_Y, z);
+  group.traverse(o => { o.castShadow = true; });
+  scene.add(group);
+  return { group, face, hits, aimDot, flights: [], shown: 0 };
+}
+const lanes = { main: makeTarget(LANE_Z.main), rival: makeTarget(LANE_Z.rival) };
+const target = lanes.main.group;
+const arrowGeometry = new THREE.CylinderGeometry(0.025, 0.025, 0.9, 8);
+arrowGeometry.rotateZ(Math.PI / 2);  // arrows point along +x
+// Where an arrow lands on a lane's target, in world space. Landing > 0 is to the archer's right (+z).
+function landingPoint(lane, landing) {
+  return new THREE.Vector3(TARGET_X - 0.45, TARGET_Y, LANE_Z[lane] + landing * TARGET_SCALE);
+}
+// Recorded landings appear on the target; a newly released arrow first flies there from the bow.
+function placeArrows(lane, landings, aim, from) {
+  const t = lanes[lane];
+  if (landings.length < t.shown) { t.flights = []; }  // scrubbed backwards
+  for (let k = t.shown; k < landings.length; k++) {
+    if (landings[k] != null && playing) t.flights.push({ k, start: wallTime, from: from.clone() });
   }
-  hits.children.forEach((arrow, i) => {
-    const landing = landings[i];
-    arrow.visible = i < landings.length && landing != null;
-    if (arrow.visible) arrow.position.set(-0.45, 0, -landing * TARGET_SCALE);
+  t.shown = landings.length;
+  while (t.hits.children.length < landings.length) {
+    const arrow = new THREE.Mesh(arrowGeometry, hurdleInk); arrow.castShadow = true; t.hits.add(arrow);
+  }
+  const flying = new Set();
+  t.flights = t.flights.filter(f => {
+    const u = (wallTime - f.start) / 0.35;
+    if (u >= 1) return false;
+    flying.add(f.k);
+    const to = landingPoint(lane, landings[f.k]);
+    const arrow = t.hits.children[f.k];
+    arrow.visible = true;
+    arrow.position.copy(f.from).lerp(to, u).sub(t.group.position);
+    arrow.position.y += 0.6 * Math.sin(Math.PI * u);  // a little arc
+    return true;
   });
-  aimDot.position.set(-0.04, 0, -aim * TARGET_SCALE);
+  t.hits.children.forEach((arrow, k) => {
+    if (flying.has(k)) return;
+    arrow.visible = k < landings.length && landings[k] != null;
+    if (arrow.visible) arrow.position.copy(landingPoint(lane, landings[k])).sub(t.group.position);
+  });
+  t.aimDot.visible = aim != null;
+  if (aim != null) t.aimDot.position.set(-0.04, 0, aim * TARGET_SCALE);
+}
+
+// A bow for each archer: a curved stave and a string the recorded draw pulls back.
+function makeBow() {
+  const group = new THREE.Group();
+  const stave = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.045, 8, 40, Math.PI), new THREE.MeshStandardMaterial({ color: 0x8f5e17, roughness: 0.6 }));
+  stave.rotation.z = -Math.PI / 2;  // bulges toward the target
+  const stringMaterial = new THREE.LineBasicMaterial({ color: 0xf1efe6 });
+  const string = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.95, 0), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -0.95, 0)]), stringMaterial);
+  const nocked = new THREE.Mesh(arrowGeometry, hurdleInk);
+  group.add(stave, string, nocked);
+  scene.add(group);
+  return { group, string, nocked };
+}
+const bows = { main: makeBow(), rival: makeBow() };
+function placeBow(bow, flyObject, laneZ, draw, show) {
+  bow.group.visible = show;
+  if (!show) return;
+  // Held out in front of the archer at shoulder height.
+  const hand = new THREE.Vector3();
+  flyObject.getWorldPosition(hand);
+  bow.group.position.set(hand.x + 1.25, 1.75, laneZ + 0.15);
+  const pull = -0.55 * Math.max(0, Math.min(1, draw));
+  const points = bow.string.geometry.attributes.position;
+  points.setX(1, pull); points.needsUpdate = true;
+  bow.nocked.visible = draw > 0;
+  bow.nocked.position.set(pull + 0.45, 0, 0);
 }
 
 function setAction(text, state) {
@@ -259,10 +315,16 @@ function setAction(text, state) {
 // The fly rides in a holder that moves it along the course and turns it at the pool wall.
 const holder = new THREE.Group();
 scene.add(holder);
-let fly;
+// Archery's opponent: a second scanned fly in the next lane.
+const rivalHolder = new THREE.Group();
+rivalHolder.position.z = LANE_Z.rival;
+scene.add(rivalHolder);
+let fly, rival;
 try {
-  fly = await loadFly();
+  [fly, rival] = await Promise.all([loadFly(), loadFly()]);
   holder.add(fly.object);
+  rivalHolder.add(rival.object);
+  rivalHolder.visible = false;
 } catch (error) {
   setAction('Fly model failed to load', 'error');
   throw error;
@@ -285,14 +347,20 @@ function frameThePad() {
   const upright = style === 'human' && eventId !== 'swimming' ? BODY_LENGTH_MM * 0.8 : 0;
   const jumping = eventId === 'hurdles' || eventId === 'steeplechase';
   const headroom = (jumping ? BODY_LENGTH_MM : 0) + upright;
-  const radius = eventId === 'archery' ? TARGET_X * 0.62 : VIEW_RADIUS;
+  if (eventId === 'archery') {
+    // Over the archer's shoulder, looking down the range at both targets.
+    controls.target.set(focusX(), 1.4, -2.6);
+    camera.position.set(-7.5, 4.6, 4.2);
+    return;
+  }
+  const radius = VIEW_RADIUS;
   controls.target.set(focusX(), 0.5 + headroom * 0.5, 0);
   const halfV = THREE.MathUtils.degToRad(camera.fov / 2);
   const halfH = Math.atan(Math.tan(halfV) * camera.aspect);
   const distance = Math.max(radius / Math.tan(halfH), (radius * 0.5 + 1.1 + headroom * 0.75) / Math.tan(halfV));
   camera.position.copy(VIEW_DIRECTION).multiplyScalar(distance).add(controls.target);
 }
-const focusX = () => eventId === 'archery' ? TARGET_X / 2 : holder.position.x;
+const focusX = () => eventId === 'archery' ? TARGET_X * 0.5 : holder.position.x;
 let payload = null, eventId = 'sprint', race = null, selected = 'rule', style = 'human';
 new ResizeObserver(resize).observe(canvas);
 resize();
@@ -402,12 +470,21 @@ function selectEvent(id) {
       barrier.position.x = h * BODY_LENGTH_MM; venue.add(barrier);
     });
   }
-  target.visible = id === 'archery';
-  if (id === 'archery') {
-    targetFace.material.map?.dispose();
-    targetFace.material.map = ringTexture(data.rings); targetFace.material.needsUpdate = true;
-    TARGET_SCALE = TARGET_RADIUS / (data.rings * data.ring_width);
+  for (const lane of Object.values(lanes)) {
+    lane.group.visible = id === 'archery';
+    lane.flights = []; lane.shown = 0;
+    if (id === 'archery') {
+      lane.face.material.map?.dispose();
+      lane.face.material.map = ringTexture(data.rings); lane.face.material.needsUpdate = true;
+    }
   }
+  if (id === 'archery') TARGET_SCALE = TARGET_RADIUS / (data.rings * data.ring_width);
+  rivalHolder.visible = id === 'archery';
+  $('rival-pick').hidden = id !== 'archery';
+  $('versus-tape').hidden = id !== 'archery';
+  $('target-cam').hidden = id !== 'archery';
+  if (id !== 'archery') { $('lane-main').hidden = true; $('lane-rival').hidden = true; }
+  for (const bow of Object.values(bows)) bow.group.visible = false;
   const scored = EVENTS[id].scored;
   $('distance-label').textContent = scored ? 'Points' : 'Distance';
   $('distance-unit').textContent = scored ? `/ ${data.max_points}` : 'BL';
@@ -475,6 +552,7 @@ function selectRun(id) {
   if (!race?.runs[runId(id)]) return;
   selected = id; records = race.runs[runId(id)]; index = 0;
   $('eye-modes').hidden = !(eventId === 'archery' && id === 'eye');
+  if (eventId === 'archery') { fillRivalOptions(); lanes.main.flights = []; lanes.main.shown = 0; lanes.rival.flights = []; lanes.rival.shown = 0; }
   setPlaying(false);
   $('timeline').max = String(records.length - 1);
   $('timeline').value = '0';
@@ -534,7 +612,7 @@ function eyeReport(wind) {
 }
 function updateEyeTag(record) {
   const show = eventId === 'archery' && selected === 'eye' && record && race.eye;
-  $('eye-tag').hidden = !show;
+  $('eye-tag').hidden = true;  // the eye panel on the right now shows this
   $('eye-panel').hidden = !show;
   if (!show) return;
   const reported = eyeMode === 'eye_blind' ? 0 : eyeReport(record.wind);
@@ -624,6 +702,40 @@ function presenterStep(n) {
 }
 $('presenter').onclick = () => presenterStep(step + 1);
 
+// ---------- Archery opponent and target close-up ----------
+let rivalId = 'fly';
+function fillRivalOptions() {
+  const choices = EVENTS.archery.controllers.filter(c => c.id !== selected && race?.runs?.[runId(c.id)]);
+  if (!choices.some(c => c.id === rivalId)) rivalId = choices.find(c => c.id === 'fly')?.id ?? choices[0]?.id;
+  $('rival').replaceChildren(...choices.map(c => new Option(c.name, c.id, false, c.id === rivalId)));
+}
+$('rival').onchange = event => { rivalId = event.target.value; lanes.rival.flights = []; lanes.rival.shown = 0; };
+const targetCam = new THREE.PerspectiveCamera(22, 1, 0.1, 100);
+function renderTargetCam() {
+  const width = canvas.clientWidth, height = canvas.clientHeight;
+  const size = Math.round(Math.min(width, height) * 0.28);
+  // Inside the canvas's faded edges, bottom right.
+  const x = Math.round(width * 0.9) - size, y = Math.round(height * 0.14);
+  targetCam.position.set(TARGET_X - 7, TARGET_Y + 0.4, LANE_Z.main);
+  targetCam.lookAt(TARGET_X, TARGET_Y, LANE_Z.main);
+  // Name tapes above each target, so the room can tell the two lanes apart.
+  const nameOf = id => EVENTS.archery.controllers.find(c => c.id === id)?.name ?? '';
+  const eyeSuffix = selected === 'eye' && eyeMode !== 'eye' ? (eyeMode === 'eye_blind' ? ' (blindfolded)' : ' (eye swapped)') : '';
+  for (const [lane, id, text] of [['main', 'lane-main', nameOf(selected) + eyeSuffix], ['rival', 'lane-rival', nameOf(rivalId)]]) {
+    const p = new THREE.Vector3(TARGET_X, TARGET_Y + TARGET_RADIUS + 0.5, LANE_Z[lane]).project(camera);
+    const tag = $(id);
+    tag.hidden = false; tag.textContent = text;
+    tag.style.left = `${(p.x + 1) / 2 * width}px`; tag.style.top = `${(1 - p.y) / 2 * height}px`;
+  }
+  renderer.setScissorTest(true);
+  renderer.setViewport(x, y, size, size); renderer.setScissor(x, y, size, size);
+  renderer.render(scene, targetCam);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, width, height);
+  const label = $('target-cam');
+  label.style.width = `${size}px`; label.style.left = `${x}px`; label.style.bottom = `${y + size + 4}px`;
+}
+
 let last = performance.now(), wallTime = 0, lastRackUpdate = 0;
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now; wallTime += dt;
@@ -649,7 +761,22 @@ function frame(now) {
   placeFly(r.position);
   follow();
   const archery = eventId === 'archery' && race && records.length;
-  if (archery) placeArrows(records.slice(0, r.i + 1).filter(x => x.shot).map(x => x.landing), r.record.aim_offset);
+  let rivalRecord = null;
+  if (archery) {
+    const bowAt = lane => bows[lane].group.position.clone().add(new THREE.Vector3(0.5, 0, 0));
+    placeArrows('main', records.slice(0, r.i + 1).filter(x => x.shot).map(x => x.landing), r.record.aim_offset, bowAt('main'));
+    const rivalRun = race.runs[runId(rivalId)] ?? [];
+    const k = Math.min(rivalRun.length - 1, r.i);
+    rivalRecord = rivalRun[k];
+    placeArrows('rival', rivalRun.slice(0, k + 1).filter(x => x.shot).map(x => x.landing), rivalRecord?.aim_offset, bowAt('rival'));
+    const human = style === 'human';
+    placeBow(bows.main, holder, LANE_Z.main, r.record.draw, human && !flying);
+    placeBow(bows.rival, rivalHolder, LANE_Z.rival, rivalRecord?.draw ?? 0, human);
+    rival.setStyle(style);
+    rival.pose(0, 0, reducedMotion ? 0 : wallTime, { event: 'archery', draw: rivalRecord?.draw ?? 0 });
+    $('versus').textContent = String(rivalRecord?.total_points ?? 0);
+    $('versus-label').textContent = EVENTS.archery.controllers.find(c => c.id === rivalId)?.name ?? 'Opponent';
+  }
   const effort = Math.min(1, r.velocity / EVENTS[eventId].topSpeed);
   const human = style === 'human';
   const stride = human ? (eventId === 'swimming' ? 1.6 : 1.25) : STRIDE;  // body lengths per cycle
@@ -669,6 +796,7 @@ function frame(now) {
   $('speed').textContent = archery ? (r.record.wind + 0).toFixed(1).replace(/^-0\.0$/, '0.0') : r.velocity.toFixed(1);
   controls.update();
   renderer.render(scene, camera);
+  if (archery) renderTargetCam();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

@@ -258,7 +258,7 @@ h1 span {
 .rack-side { align-self: end; }
 .circuit { margin: 0; }
 .circuit h2 { margin: 0 0 calc(var(--u) * .4); font-size: calc(var(--u) * .95); font-weight: 800; font-stretch: 87%; text-transform: uppercase; }
-#circuit { display: block; width: 100%; height: min(calc(var(--u) * 11), 17vh); }
+#circuit { display: block; width: 100%; height: min(calc(var(--u) * 9), 14vh); }
 .circuit-note { margin: calc(var(--u) * .3) 0 0; font-size: calc(var(--u) * .72); color: var(--muted); }
 
 /* What the eye reports, in Archery */
@@ -287,3 +287,18 @@ h1 span {
   .rack { gap: 6px; }
   .vial { width: 62px; }
 }
+
+/* Archery arena: opponent picker, versus score and the target close-up label */
+.rival-pick { display: flex; flex-direction: column; gap: .3em; margin-top: calc(var(--u) * .6); font-size: calc(var(--u) * .72); color: var(--muted); }
+.rival-pick select { font: 400 calc(var(--u) * .95)/1.1 var(--marker); color: var(--ink); background: var(--tape); border: 0; padding: .35em .5em; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
+.tape-versus { background: var(--tape-shade); }
+.target-cam-label {
+  position: absolute; margin: 0; padding: .15em 0; text-align: center; pointer-events: none;
+  font: 700 calc(var(--u) * .7)/1 var(--face); letter-spacing: .06em; text-transform: uppercase; color: var(--tape);
+}
+.lane-tag {
+  position: absolute; margin: 0; transform: translate(-50%, -100%) rotate(-2deg); pointer-events: none; white-space: nowrap;
+  padding: .25em .7em .2em; background: var(--tape); color: var(--ink); font: 400 calc(var(--u) * .9)/1.1 var(--marker);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
+.lane-tag-rival { background: var(--tape-shade); transform: translate(-50%, -100%) rotate(1.5deg); }

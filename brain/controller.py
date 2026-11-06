@@ -11,10 +11,13 @@ import numpy as np
 from controllers.base import Controller
 from .connectome import ConnectomeCircuit, load_manc_front_leg_circuit
 from .dynamics import RateNetwork
+from .archery_io import ARCHERY_INITIAL_THRESHOLDS, ARCHERY_INPUTS, ArcheryDecoder, ArcheryEncoder
 from .hurdles_io import HURDLES_INPUTS, HurdlesDecoder, HurdlesEncoder
 from .motor import MotorDecoder
 from .swimming_io import SWIMMING_INPUTS, SwimmingDecoder, SwimmingEncoder
 from .sensory import LearnedSensoryEncoder, SensoryEncoder, load_encoder_weights
+from .steeplechase_io import (STEEPLECHASE_INITIAL_THRESHOLDS, STEEPLECHASE_INPUTS,
+                              SteeplechaseDecoder, SteeplechaseEncoder)
 
 MODELS_DIR = Path(__file__).resolve().parents[1] / "models"
 SPRINT_POLICY = MODELS_DIR / "sprint.json"
@@ -22,6 +25,16 @@ SPRINT_ENCODER = MODELS_DIR / "sprint_encoder.csv"
 SPRINT_ENCODER_INIT = MODELS_DIR / "sprint_encoder_init.csv"
 HURDLES_ENCODER_INIT = MODELS_DIR / "hurdles_encoder_init.csv"
 SWIMMING_ENCODER_INIT = MODELS_DIR / "swimming_encoder_init.csv"
+ARCHERY_ENCODER_INIT = MODELS_DIR / "archery_encoder_init.csv"
+ARCHERY_POLICY = MODELS_DIR / "archery.json"
+STEEPLECHASE_ENCODER_INIT = MODELS_DIR / "steeplechase_encoder_init.csv"
+STEEPLECHASE_POLICY = MODELS_DIR / "steeplechase.json"
+
+# Event name -> (encoder inputs, encoder class, decoder class) for the band-decoder events.
+BAND_EVENTS = {
+    "archery": (ARCHERY_INPUTS, ArcheryEncoder, ArcheryDecoder),
+    "steeplechase": (STEEPLECHASE_INPUTS, SteeplechaseEncoder, SteeplechaseDecoder),
+}
 
 
 class FlyBrainController(Controller):
@@ -73,6 +86,42 @@ class FlyBrainController(Controller):
         weights = load_encoder_weights(Path(path), circuit, SWIMMING_INPUTS)
         return cls(circuit=circuit, encoder=SwimmingEncoder(circuit, weights),
                    decoder=SwimmingDecoder(circuit, threshold=motor_threshold))
+
+    @classmethod
+    def band_event(cls, event: str, weights: Path | np.ndarray, thresholds,
+                   circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Archery or Steeplechase fly from encoder weights (array or CSV) and band thresholds."""
+        if event not in BAND_EVENTS:
+            raise ValueError(f"Unknown band event {event!r}; choose from {sorted(BAND_EVENTS)}")
+        inputs, encoder, decoder = BAND_EVENTS[event]
+        circuit = circuit if circuit is not None else load_manc_front_leg_circuit()
+        if not isinstance(weights, np.ndarray):
+            weights = load_encoder_weights(Path(weights), circuit, inputs)
+        return cls(circuit=circuit, encoder=encoder(circuit, weights), decoder=decoder(circuit, thresholds))
+
+    @classmethod
+    def archery(cls, path: Path = ARCHERY_ENCODER_INIT, thresholds=ARCHERY_INITIAL_THRESHOLDS,
+                circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Untrained Archery fly: starting encoder weights and placeholder thresholds."""
+        return cls.band_event("archery", path, thresholds, circuit)
+
+    @classmethod
+    def steeplechase(cls, path: Path = STEEPLECHASE_ENCODER_INIT, thresholds=STEEPLECHASE_INITIAL_THRESHOLDS,
+                     circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Untrained Steeplechase fly: starting encoder weights, Hurdles' placeholder thresholds."""
+        return cls.band_event("steeplechase", path, thresholds, circuit)
+
+    @classmethod
+    def from_policy(cls, path: Path, circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+        """Trained Archery or Steeplechase fly from a policy JSON written by its training script."""
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Missing policy: {path}. Run the event's training script "
+                                    f"(python -m experiments.train_archery / train_steeplechase).")
+        policy = json.loads(path.read_text())
+        if policy.get("version") != 1 or policy.get("event") not in BAND_EVENTS:
+            raise ValueError(f"{path}: expected a version 1 archery or steeplechase policy.")
+        return cls.band_event(policy["event"], path.parent / policy["encoder"], policy["thresholds"], circuit)
 
     @classmethod
     def trained(cls, path: Path = SPRINT_POLICY, circuit: ConnectomeCircuit | None = None) -> FlyBrainController:

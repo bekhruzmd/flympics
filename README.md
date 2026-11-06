@@ -213,9 +213,9 @@ Checked-in results (`models/archery.json`, `models/steeplechase.json`):
 | Archery, 100 held-out winds | Mean points / 60 | 10s |
 |---|---:|---:|
 | Rule (knows the drift constant) | 59.92 | 99 % |
-| **Trained fly** | **55.21** | 56 % |
-| Always release at the centre | 42.79 | 19 % |
-| Untrained fly | 41.95 | 19 % |
+| **Trained fly** | **54.95** | 53 % |
+| Always release at the centre | 41.98 | 18 % |
+| Untrained fly | 41.42 | 18 % |
 
 | Steeplechase, fixed course | Time | Barriers cleared | Splashes |
 |---|---:|---:|---:|

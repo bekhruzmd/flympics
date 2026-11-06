@@ -46,18 +46,19 @@
   "training_seconds": 138.7,
   "trained": {
     "validation_seeds": "1000-1099",
-    "mean_points": 55.35,
-    "min_points": 47.0,
-    "perfect_tens_rate": 0.595,
+    "mean_points": 55.57,
+    "min_points": 46.0,
+    "perfect_tens_rate": 0.618,
     "timeouts": 0,
-    "mean_end_time": 7.99
+    "mean_end_time": 7.96
   },
   "untrained": {
     "validation_seeds": "1000-1099",
-    "mean_points": 42.2,
-    "min_points": 30.0,
-    "perfect_tens_rate": 0.19,
+    "mean_points": 41.65,
+    "min_points": 25.0,
+    "perfect_tens_rate": 0.18,
     "timeouts": 0,
     "mean_end_time": 6.6
-  }
+  },
+  "evaluation_note": "Re-measured after the Archery wind got its own per-arrow random stream (identical winds for every controller); training itself is unchanged."
 }

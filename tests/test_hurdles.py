@@ -173,3 +173,26 @@ def test_generated_layouts_follow_the_rules():
 def test_validate_layout_rejects(layout):
     with pytest.raises(ValueError):
         validate_layout(layout, 200.0)
+
+
+def test_controllers_face_identical_conditions_on_same_seed():
+    from controllers.hurdle_baselines import HurdleRuleController, RandomController
+    seed = 42
+    rule_event = Hurdles(seeded=True)
+    rand_event = Hurdles(seeded=True)
+    rule_ctrl = HurdleRuleController()
+    rand_ctrl = RandomController()
+
+    obs1 = rule_event.reset(seed)
+    rule_ctrl.reset(seed)
+    while not rule_event.is_finished():
+        obs1 = rule_event.step(rule_ctrl.act(obs1))
+
+    obs2 = rand_event.reset(seed)
+    rand_ctrl.reset(seed)
+    while not rand_event.is_finished():
+        obs2 = rand_event.step(rand_ctrl.act(obs2))
+
+    assert rule_event.hurdles == rand_event.hurdles
+    assert rule_event.distance == rand_event.distance
+    assert len(rule_event.hurdles) > 0

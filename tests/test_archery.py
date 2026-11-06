@@ -84,3 +84,37 @@ def test_run_records_and_score():
     assert score(records) == sum(r["points"] for r in shots)
     assert summary(records)["timeouts"] == 0
     assert run("rule", seed=7) == records
+
+
+def test_controllers_face_identical_conditions_on_same_seed():
+    import numpy as np
+    seed = 42
+    rule_event, rand_event = Archery(), Archery()
+    rule_ctrl, rand_ctrl = ArcheryRuleController(), RandomController()
+
+    rule_conditions, rand_conditions = [], []
+
+    obs1 = rule_event.reset(seed)
+    rule_ctrl.reset(seed)
+    rule_conditions.append((rule_event.base_wind, rule_event.gust, rule_event._gust_noise.copy()))
+    while not rule_event.is_finished():
+        prev_arrow = rule_event.arrow
+        obs1 = rule_event.step(rule_ctrl.act(obs1))
+        if not rule_event.is_finished() and rule_event.arrow != prev_arrow:
+            rule_conditions.append((rule_event.base_wind, rule_event.gust, rule_event._gust_noise.copy()))
+
+    obs2 = rand_event.reset(seed)
+    rand_ctrl.reset(seed)
+    rand_conditions.append((rand_event.base_wind, rand_event.gust, rand_event._gust_noise.copy()))
+    while not rand_event.is_finished():
+        prev_arrow = rand_event.arrow
+        obs2 = rand_event.step(rand_ctrl.act(obs2))
+        if not rand_event.is_finished() and rand_event.arrow != prev_arrow:
+            rand_conditions.append((rand_event.base_wind, rand_event.gust, rand_event._gust_noise.copy()))
+
+    assert len(rule_conditions) == 6
+    assert len(rand_conditions) == 6
+    for i in range(6):
+        assert rule_conditions[i][0] == pytest.approx(rand_conditions[i][0])
+        assert rule_conditions[i][1] == pytest.approx(rand_conditions[i][1])
+        assert np.array_equal(rule_conditions[i][2], rand_conditions[i][2])

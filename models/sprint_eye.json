@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "event": "sprint_eye",
+  "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights and the motor threshold, with Sprint score as the objective. Connectome and dynamics frozen.",
+  "encoder": "sprint_eye_encoder.csv",
+  "inputs": [
+    "distance",
+    "eye"
+  ],
+  "actions": [
+    "COAST",
+    "ACCELERATE"
+  ],
+  "thresholds": [
+    2.709150691789007e-06
+  ],
+  "hyperparameters": {
+    "generations": 60,
+    "pairs": 24,
+    "population": 49,
+    "weight_sigma": 0.3,
+    "threshold_sigma": 1e-05,
+    "lr": 0.05,
+    "seed": 0,
+    "train_seeds": [
+      7
+    ],
+    "imitation_generations": 0,
+    "start_sigma": 0.5
+  },
+  "train_fitness": -18.699999999999996,
+  "training_seconds": 4.9,
+  "trained": {
+    "time": 18.7,
+    "finished": true,
+    "distance": 100.0
+  },
+  "untrained": {
+    "time": 60.0,
+    "finished": false,
+    "distance": 10.155547554794325
+  },
+  "comparison_seed": 7,
+  "comparison": {
+    "untrained": {
+      "time": 60.0,
+      "finished": false,
+      "distance": 3.124799327876815
+    },
+    "existing_trained": {
+      "time": 18.7,
+      "finished": true,
+      "distance": 100.0
+    },
+    "eye": {
+      "time": 18.7,
+      "finished": true,
+      "distance": 100.0
+    },
+    "blindfolded": {
+      "time": 18.7,
+      "finished": true,
+      "distance": 100.0
+    }
+  }
+}

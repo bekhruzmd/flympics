@@ -66,6 +66,44 @@ learned. At gain 1 (a modeling choice for this experiment only) 20,000 practice 
 28.4 -> 31.1 points on held-out winds with the fly's own noise, but the practice curve
 stayed flat, so this is not convincing learning. Reported as a negative result.
 
+## Sprint speed eye
+
+The scene is drawn. A downward-facing camera moves over speckled ground at 21
+speeds from 0 to 8 body lengths/s. The calibration uses the same horizontal T4/T5
+readout as Archery, measured during the last half of each one-second block on
+three textures. Mean activity rose at every sampled speed (Pearson r = 0.96).
+
+![Horizontal T4/T5 activity versus ground speed, with error bars across textures](speed_eye.png)
+
+The eye-to-leg link is modeled. The game maps one velocity unit to one body
+length/s in the scene. The encoder interpolates the saved T4/T5 response,
+subtracts the response at rest, and scales by the largest absolute change.
+That activity and the distance to finish drive the leg circuit. Calibration
+uses FlyVis in `.venv-vision`. Training and replay use the table in the normal
+`.venv`.
+
+```sh
+FLYVIS_ROOT_DIR="$HOME/flyvis-data" .venv-vision/bin/python -m experiments.vision_speed
+.venv/bin/python -m experiments.train_sprint_eye --imitation-generations 0 --threshold-sigma 0.00001
+.venv/bin/python -m experiments.train_sprint_eye --compare
+```
+
+The evolution strategy ran for 60 generations from a threshold of `3e-5`, near
+the circuit's saturated motor differences. The initial eye policy covered
+10.16 m in 60 s. The saved policy finished the 100 m race.
+
+| Sprint controller (seed 7) | Elapsed time | Distance |
+|---|---:|---:|
+| Untrained Sprint fly | 60.0 s (timed out) | 3.12 m |
+| Existing trained Sprint fly | 18.7 s | 100 m |
+| Trained speed-eye fly | 18.7 s | 100 m |
+| Same speed-eye fly, blindfolded | 18.7 s | 100 m |
+
+The eye did not improve Sprint performance. The trained fly accelerated on
+every step both with vision and with the eye signal held at zero. Sprint has
+fixed drag and no cost for accelerating, so that action sequence already gives
+the fastest possible time.
+
 ## Next steps
 
 1. Tune the MANC connection strengths of the eye-fly with the evolution strategy at

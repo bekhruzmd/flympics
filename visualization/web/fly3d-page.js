@@ -411,12 +411,11 @@ const PHOTO_SHOT = { direction: [0, 0.35, 1], span: 9, height: 1.1 };
 let payload = null, eventId = 'sprint', race = null, selected = 'rule', style = 'human';
 let records = [], index = 0, playing = false, flying = false, rate = 1;
 let raceLanes = [], replayEnd = 0, firstFinish = -1, photoUntil = 0;
-let leader = null, cameraX = 0, photoShown = false, snapCamera = true, sheetStep = -1;
+let leader = null, cameraX = 0, currentCameraDistance = 24, photoShown = false, snapCamera = true, sheetStep = -1;
 const reserveFlies = [];
 
 function cameraLane() {
-  // The high shot keeps the main lane's barriers and water jumps in view.
-  return eventId === 'steeplechase' ? holder : leader?.holder ?? holder;
+  return leader?.holder ?? holder;
 }
 
 function focusX() {
@@ -441,6 +440,7 @@ function frameThePad() {
   const halfSpan = Math.max(span, laneOffsets.length * LANE * 0.65);
   const distance = Math.max(halfSpan / (halfV * camera.aspect), (halfSpan * 0.58 + 1.5) / halfV);
   camera.position.set(...direction).normalize().multiplyScalar(distance).add(controls.target);
+  currentCameraDistance = distance;
 }
 new ResizeObserver(resize).observe(canvas);
 resize();
@@ -687,56 +687,154 @@ function bodyLengthOnScreen() {
   return (Math.abs(far.x - near.x) / 2) * view.w;
 }
 
-// Fit the recorded world positions, including swimmers on the return length.
-// Cap the view at 48 body lengths from its target to keep the scans legible.
+// Lead group: the leader plus any racers within 8 body lengths.
+// Hysteresis keeps members from flickering: join at 8, drop out at 10.
+const LEAD_GROUP_JOIN = 8;
+const LEAD_GROUP_DROP = 10;
+const BASE_RING_ANGLE = Math.PI / 6;
+const MAX_RING_ANGLE = Math.PI * 0.42;
 const MAX_PACK_DISTANCE = 120;
-function fitPack() {
+
+const packDirection = new THREE.Vector3();
+const packRight = new THREE.Vector3();
+const packUp = new THREE.Vector3();
+const packBounds = new THREE.Box3();
+const packPoint = new THREE.Vector3();
+const packCentre = new THREE.Vector3();
+const packOffset = new THREE.Vector3();
+const goalTarget = new THREE.Vector3();
+const goalRingPos = new THREE.Vector3();
+const goalRingTarget = new THREE.Vector3();
+const goalFlyPoint = new THREE.Vector3();
+
+function updateLeadGroup() {
   if (!raceLanes.length) return;
-  const direction = camera.position.clone().sub(controls.target).normalize();
-  const right = new THREE.Vector3().crossVectors(camera.up, direction).normalize();
-  const up = new THREE.Vector3().crossVectors(direction, right).normalize();
-  const bounds = new THREE.Box3();
+  let maxPos = -Infinity;
   for (const lane of raceLanes) {
-    const point = lane.holder.position.clone();
-    point.y = (lane.record?.height ?? 0) * BODY_LENGTH_MM + 1.5;
-    bounds.expandByPoint(point);
+    const pos = lane.record?.position ?? 0;
+    if (pos > maxPos) maxPos = pos;
   }
-  const centre = bounds.getCenter(new THREE.Vector3());
+  for (const lane of raceLanes) {
+    const pos = lane.record?.position ?? 0;
+    const gap = maxPos - pos;
+    // Ties for the lead are always in the group.
+    if (gap < 0.001) {
+      lane.inLeadGroup = true;
+    } else if (snapCamera || !playing) {
+      lane.inLeadGroup = gap <= LEAD_GROUP_JOIN;
+    } else if (lane.inLeadGroup) {
+      if (gap > LEAD_GROUP_DROP) lane.inLeadGroup = false;
+    } else {
+      if (gap <= LEAD_GROUP_JOIN) lane.inLeadGroup = true;
+    }
+  }
+}
+
+function fitLeadGroup(dt) {
+  if (!raceLanes.length) return;
+  updateLeadGroup();
+
+  packBounds.makeEmpty();
+  let leadCount = 0;
+  for (const lane of raceLanes) {
+    if (lane.inLeadGroup) {
+      leadCount++;
+      packPoint.copy(lane.holder.position);
+      packPoint.y = (lane.record?.height ?? 0) * BODY_LENGTH_MM + 1.5;
+      packBounds.expandByPoint(packPoint);
+    }
+  }
+  if (!leadCount && raceLanes.length) {
+    const fallback = leader ?? raceLanes[0];
+    fallback.inLeadGroup = true;
+    packPoint.copy(fallback.holder.position);
+    packPoint.y = (fallback.record?.height ?? 0) * BODY_LENGTH_MM + 1.5;
+    packBounds.expandByPoint(packPoint);
+  }
+
+  packBounds.getCenter(packCentre);
+  packDirection.copy(camera.position).sub(controls.target);
+  if (packDirection.lengthSq() < 0.0001) {
+    const defaultDir = RACE_SHOTS[eventId]?.direction ?? [0.4, 0.42, 1];
+    packDirection.set(...defaultDir);
+  }
+  packDirection.normalize();
+  packRight.crossVectors(camera.up, packDirection).normalize();
+  packUp.crossVectors(packDirection, packRight).normalize();
+
   const vertical = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 0.78;
   const horizontal = vertical * camera.aspect;
   let distance = 24;
+  let maxSpread = 0;
+
   for (const lane of raceLanes) {
-    const offset = lane.holder.position.clone().sub(centre);
-    offset.y += (lane.record?.height ?? 0) * BODY_LENGTH_MM + 1.5;
-    distance = Math.max(distance, offset.dot(direction) +
-      Math.max((Math.abs(offset.dot(right)) + 3) / horizontal,
-               (Math.abs(offset.dot(up)) + 4) / vertical));
+    if (!lane.inLeadGroup) continue;
+    packOffset.copy(lane.holder.position).sub(packCentre);
+    packOffset.y += (lane.record?.height ?? 0) * BODY_LENGTH_MM + 1.5;
+    distance = Math.max(distance, packOffset.dot(packDirection) +
+      Math.max((Math.abs(packOffset.dot(packRight)) + 3) / horizontal,
+               (Math.abs(packOffset.dot(packUp)) + 4) / vertical));
+
+    const dx = lane.holder.position.x - packCentre.x;
+    const dz = lane.holder.position.z - packCentre.z;
+    const r = Math.sqrt(dx * dx + dz * dz);
+    if (r > maxSpread) maxSpread = r;
   }
-  const anchor = cameraLane().position.clone();
-  anchor.y = centre.y;
-  // When the field exceeds the cap, keep the action near the followed lane.
-  centre.lerp(anchor, Math.max(0, 1 - MAX_PACK_DISTANCE / distance));
-  controls.target.copy(centre);
-  camera.position.copy(direction).multiplyScalar(Math.min(distance, MAX_PACK_DISTANCE)).add(centre);
-  cameraX = centre.x;
+
+  const goalDistance = Math.min(distance, MAX_PACK_DISTANCE);
+  goalTarget.copy(packCentre);
+
+  // Spotlight follows the lead group centre and widens when spread out
+  goalRingTarget.set(packCentre.x, 0, packCentre.z);
+  goalRingPos.set(packCentre.x + 0.6, 11, packCentre.z + 2.2);
+  const neededAngle = Math.atan((maxSpread + 2.5) / 11);
+  const goalRingAngle = Math.min(MAX_RING_ANGLE, Math.max(BASE_RING_ANGLE, neededAngle));
+  goalFlyPoint.set(packCentre.x, 0.6, packCentre.z);
+
+  // Smooth gliding with follow()'s existing damping
+  const amount = snapCamera || reducedMotion || !playing ? 1 : Math.min(1, dt * 14);
+
+  if (amount >= 1) {
+    controls.target.copy(goalTarget);
+    currentCameraDistance = goalDistance;
+    camera.position.copy(packDirection).multiplyScalar(goalDistance).add(controls.target);
+    ring.target.position.copy(goalRingTarget);
+    ring.position.copy(goalRingPos);
+    ring.angle = goalRingAngle;
+    flyPoint.copy(goalFlyPoint);
+  } else {
+    controls.target.lerp(goalTarget, amount);
+    currentCameraDistance += (goalDistance - currentCameraDistance) * amount;
+    camera.position.copy(packDirection).multiplyScalar(currentCameraDistance).add(controls.target);
+    ring.target.position.lerp(goalRingTarget, amount);
+    ring.position.lerp(goalRingPos, amount);
+    ring.angle += (goalRingAngle - ring.angle) * amount;
+    flyPoint.lerp(goalFlyPoint, amount);
+  }
+
+  cameraX = controls.target.x;
   scene.fog.near = 140;
   scene.fog.far = 190;
 }
 
 // ---------- Playback ----------
 function follow(dt) {
-  const goalX = focusX();
-  const amount = snapCamera || reducedMotion || !playing ? 1 : Math.min(1, dt * 14);
-  cameraX += (goalX - cameraX) * amount;
-  const dx = cameraX - controls.target.x;
-  controls.target.x += dx; camera.position.x += dx;
-  if (eventId !== 'archery' && !photoShown) fitPack();
-  else { scene.fog.near = 40; scene.fog.far = 95; }
+  if (eventId !== 'archery' && !photoShown) {
+    fitLeadGroup(dt);
+  } else {
+    const goalX = focusX();
+    const amount = snapCamera || reducedMotion || !playing ? 1 : Math.min(1, dt * 14);
+    cameraX += (goalX - cameraX) * amount;
+    const dx = cameraX - controls.target.x;
+    controls.target.x += dx; camera.position.x += dx;
+    scene.fog.near = 40; scene.fog.far = 95;
+    const lit = cameraLane();
+    ring.position.set(lit.position.x + 0.6, 11, lit.position.z + 2.2);
+    ring.target.position.set(lit.position.x, 0, lit.position.z);
+    ring.angle = BASE_RING_ANGLE;
+    flyPoint.set(lit.position.x, 0.6, lit.position.z);
+  }
   snapCamera = false;
-  const lit = cameraLane();
-  ring.position.set(lit.position.x + 0.6, 11, lit.position.z + 2.2);
-  ring.target.position.set(lit.position.x, 0, lit.position.z);
-  flyPoint.copy(lit.position).add(new THREE.Vector3(0, 0.6, 0));
 }
 
 // ---------- The eye tag (Archery, "Sees the wind") ----------
@@ -983,7 +1081,7 @@ function buildRaceLanes() {
         if (record.splashes > (run[frame - 1]?.splashes ?? 0)) impacts.push({ frame, position: record.position });
       });
     }
-    raceLanes.push({ ...slot, id, name, tag, run, impacts, lane: (trackLaneCount + 1) / 2 + offset, record: null });
+    raceLanes.push({ ...slot, id, name, tag, run, impacts, lane: (trackLaneCount + 1) / 2 + offset, record: null, inLeadGroup: true });
   }
   if (eventId === 'sprint' && finishSteps.length) firstFinish = Math.min(...finishSteps);
 }

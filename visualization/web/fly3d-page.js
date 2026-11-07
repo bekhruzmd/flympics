@@ -325,9 +325,14 @@ function placeBow(bow, flyObject, laneZ, draw, show) {
   bow.nocked.position.set(pull + 0.45, 0, 0);
 }
 
+function setText(id, text) {
+  const element = $(id);
+  if (element.textContent !== text) element.textContent = text;
+}
 function setAction(text, state) {
-  $('action').textContent = text;
-  $('action-tape').dataset.action = state ?? '';
+  setText('action', text);
+  const tape = $('action-tape');
+  if (tape.dataset.action !== (state ?? '')) tape.dataset.action = state ?? '';
 }
 
 // The fly rides in a holder that moves it along the course and turns it at the pool wall.
@@ -349,15 +354,15 @@ try {
 }
 
 // ---------- Drawing quality ----------
-// Slower graphics chips get fewer pixels and fewer shadows. Only the picture changes:
-// every lane still replays its own recorded run. ?quality=high|medium|low pins a level.
+// Full quality by default. ?quality=medium|low draws fewer pixels and shadows for a weak
+// demo laptop. Only the picture changes: every lane still replays its own recorded run.
 const QUALITY = [
   { name: 'high', pixelRatio: 2, shadows: 'all', shadowMap: 2048, soft: true },
   { name: 'medium', pixelRatio: 1.25, shadows: 'main', shadowMap: 1024, soft: false },
   { name: 'low', pixelRatio: 1, shadows: 'none', shadowMap: 1024, soft: false },
 ];
 const pinnedQuality = QUALITY.findIndex(q => q.name === new URLSearchParams(location.search).get('quality'));
-let quality = pinnedQuality >= 0 ? pinnedQuality : 0;
+const quality = pinnedQuality >= 0 ? pinnedQuality : 0;
 
 function castShadows(flyModel, on) {
   flyModel.object.traverse(o => {
@@ -381,29 +386,13 @@ function applyQuality() {
   resize();
 }
 
-// Watch real frame times while a replay plays; step down a level if the median frame is
-// slower than about 40 fps. Never steps back up, so the picture doesn't flicker.
-const frameTimes = [];
-let settleFrames = 30;
-function watchFrameRate(frameMs) {
-  if (pinnedQuality >= 0 || quality >= QUALITY.length - 1) return;
-  if (!playing || document.visibilityState !== 'visible') { frameTimes.length = 0; return; }
-  if (settleFrames > 0) { settleFrames--; return; }
-  frameTimes.push(frameMs);
-  if (frameTimes.length < 90) return;
-  const median = [...frameTimes].sort((a, b) => a - b)[45];
-  frameTimes.length = 0;
-  if (median > 25) {
-    quality++;
-    settleFrames = 30;
-    applyQuality();
-    console.info(`Flympics: frames took ${median.toFixed(0)} ms, drawing at ${QUALITY[quality].name} quality`);
-  }
-}
-
+// Sizes read once per resize, not every frame: reading layout after the frame's DOM
+// writes forces the browser to lay out the whole page again.
+const view = { w: 0, h: 0, topEdge: 0, topEdgeAt: -Infinity };
 function resize() {
   const { clientWidth: w, clientHeight: h } = canvas;
   if (!w || !h) return;
+  view.w = w; view.h = h; view.topEdgeAt = -Infinity;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -695,7 +684,7 @@ const flyPoint = new THREE.Vector3(0, 0.6, 0), near = new THREE.Vector3(), far =
 function bodyLengthOnScreen() {
   near.copy(flyPoint).project(camera);
   far.setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(BODY_LENGTH_MM).add(flyPoint).project(camera);
-  return (Math.abs(far.x - near.x) / 2) * canvas.clientWidth;
+  return (Math.abs(far.x - near.x) / 2) * view.w;
 }
 
 // Fit the recorded world positions, including swimmers on the return length.
@@ -781,14 +770,28 @@ function updateEyeTag(record) {
 // ---------- The circuit panel: the 135 MANC neurons, by role ----------
 const circuitCanvas = $('circuit'), circuitContext = circuitCanvas.getContext('2d');
 const ROLE_ORDER = [['sensory', 'Sensory'], ['intrinsic', 'Interneurons'], ['motor_extensor', 'Extensor'], ['motor_flexor', 'Flexor']];
+const circuitSize = { width: 0, height: 0 };
+new ResizeObserver(([entry]) => {
+  circuitSize.width = entry.contentRect.width; circuitSize.height = entry.contentRect.height;
+  circuitDrawn = null;
+}).observe(circuitCanvas);
+let circuitDrawn = null, circuitColumns = null, circuitNodes = null;
 function drawCircuit(record) {
   const nodes = payload?.circuit?.nodes; if (!nodes) return;
-  const ratio = Math.min(devicePixelRatio, 2), width = circuitCanvas.clientWidth, height = circuitCanvas.clientHeight;
+  const { width, height } = circuitSize;
   if (!width || !height) return;
+  const drawing = record ?? 'none';
+  if (circuitDrawn === drawing) return;  // nothing changed since the last frame
+  circuitDrawn = drawing;
+  const ratio = Math.min(devicePixelRatio, 2);
   if (circuitCanvas.width !== Math.round(width * ratio)) { circuitCanvas.width = Math.round(width * ratio); circuitCanvas.height = Math.round(height * ratio); }
   const g = circuitContext; g.setTransform(ratio, 0, 0, ratio, 0, 0); g.clearRect(0, 0, width, height);
   const activity = record?.neuron_activity;
-  const columns = ROLE_ORDER.map(([role]) => nodes.map((n, i) => (n.role === role ? i : -1)).filter(i => i >= 0));
+  if (circuitNodes !== nodes) {
+    circuitNodes = nodes;
+    circuitColumns = ROLE_ORDER.map(([role]) => nodes.map((n, i) => (n.role === role ? i : -1)).filter(i => i >= 0));
+  }
+  const columns = circuitColumns;
   const labelHeight = 16, barHeight = 26, top = labelHeight, bottom = height - barHeight - 6;
   const columnWidth = width / columns.length;
   g.font = `600 ${Math.max(10, Math.round(width / 26))}px Archivo, system-ui, sans-serif`;
@@ -872,7 +875,7 @@ $('rival').onchange = event => {
 };
 const targetCam = new THREE.PerspectiveCamera(22, 1, 0.1, 100);
 function renderTargetCam() {
-  const width = canvas.clientWidth, height = canvas.clientHeight;
+  const width = view.w, height = view.h;
   const size = Math.round(Math.min(width, height) * 0.28);
   // Inside the canvas's faded edges, bottom right.
   const x = Math.round(width * 0.9) - size, y = Math.round(height * 0.14);
@@ -1024,10 +1027,14 @@ function placeRaceLanes(step) {
 
 const tagPoint = new THREE.Vector3(), cameraDirection = new THREE.Vector3();
 function renderRaceTags() {
-  const width = canvas.clientWidth, height = canvas.clientHeight;
+  const width = view.w, height = view.h;
   const boxes = [];
   camera.getWorldDirection(cameraDirection);
-  const topEdge = Math.max(scaleBar.parentElement.offsetHeight, $('presenter').offsetHeight) + 5;
+  if (performance.now() - view.topEdgeAt > 1000) {  // the presenter caption can change height
+    view.topEdge = Math.max(scaleBar.parentElement.offsetHeight, $('presenter').offsetHeight) + 5;
+    view.topEdgeAt = performance.now();
+  }
+  const topEdge = view.topEdge;
   for (const lane of raceLanes) {
     const tag = lane.tag;
     tagPoint.copy(lane.holder.position);
@@ -1041,9 +1048,11 @@ function renderRaceTags() {
     tag.classList.toggle('edge-marker', outside);
     const dx = (x - width / 2) * (inFront ? 1 : -1);
     const dy = (y - height / 2) * (inFront ? 1 : -1);
-    tag.style.setProperty('--pointer-angle', `${Math.atan2(dy, dx)}rad`);
-    tag.textContent = lane.name;
-    const w = tag.offsetWidth, h = tag.offsetHeight;
+    if (outside) tag.style.setProperty('--pointer-angle', `${Math.atan2(dy, dx)}rad`);
+    const sizes = lane.tagSizes ??= {};
+    const look = outside ? 'edge' : 'plain';
+    if (!sizes[look]?.[0]) sizes[look] = [tag.offsetWidth, tag.offsetHeight];
+    const [w, h] = sizes[look];
     const edgeScale = Math.min(
       Math.max(1, width / 2 - w / 2 - 4) / Math.max(0.001, Math.abs(dx)),
       Math.max(1, height / 2 - topEdge - h - 4) / Math.max(0.001, Math.abs(dy)));
@@ -1057,7 +1066,11 @@ function renderRaceTags() {
       const box = { l: left - w / 2, r: left + w / 2, t: bottom - h, b: bottom };
       if (box.t < topEdge || box.b > height - 2 ||
           boxes.some(b => box.l < b.r + 3 && box.r > b.l - 3 && box.t < b.b + 2 && box.b > b.t - 2)) continue;
-      tag.style.left = `${left}px`; tag.style.top = `${bottom}px`;
+      const placement = `${left.toFixed(1)},${bottom.toFixed(1)}`;
+      if (tag.dataset.at !== placement) {
+        tag.dataset.at = placement;
+        tag.style.left = `${left}px`; tag.style.top = `${bottom}px`;
+      }
       boxes.push(box);
       placed = true;
       break;
@@ -1131,7 +1144,6 @@ function renderStandings(step) {
 
 let last = performance.now(), wallTime = 0, lastRackUpdate = 0;
 function frame(now) {
-  watchFrameRate(now - last);
   const dt = Math.min(0.1, (now - last) / 1000); last = now; wallTime += dt;
   if (playing && now >= photoUntil) {
     const next = Math.min(replayEnd, index + rate * dt / race.dt);
@@ -1185,14 +1197,15 @@ function frame(now) {
 
   if (now - lastRackUpdate > 100) { updateRack(); lastRackUpdate = now; }
   const seconds = Number($('ticks').dataset.seconds) || 1;
-  $('ruler').style.setProperty('--progress', `${Math.min(100, (time / seconds) * 100)}%`);
+  const progress = `${Math.min(100, (time / seconds) * 100).toFixed(2)}%`;
+  if ($('ruler').style.getPropertyValue('--progress') !== progress) $('ruler').style.setProperty('--progress', progress);
   const stopped = !archery && step >= records.length - 1;
   if (stopped) setAction(finished(record) ? 'Finished' : 'DNF', '');
   else if (!step) setAction('Ready', '');
   else setAction(record.exhausted && record.action === 'ACCELERATE' ? 'ACC (exhausted)' : record.action, record.action);
-  $('time').textContent = formatTime(time);
-  $('distance').textContent = archery ? String(record.total_points) : position.toFixed(1);
-  $('speed').textContent = archery ? record.wind.toFixed(1).replace(/^-0\.0$/, '0.0') : velocity.toFixed(1);
+  setText('time', formatTime(time));
+  setText('distance', archery ? String(record.total_points) : position.toFixed(1));
+  setText('speed', archery ? record.wind.toFixed(1).replace(/^-0\.0$/, '0.0') : velocity.toFixed(1));
   updateEyeTag(record);
   drawCircuit(record);
   updateCircuitNote(record);
@@ -1200,7 +1213,8 @@ function frame(now) {
   follow(dt);
   controls.update();
   renderer.render(scene, camera);
-  scaleBar.style.width = `${bodyLengthOnScreen().toFixed(1)}px`;
+  const barWidth = `${bodyLengthOnScreen().toFixed(1)}px`;
+  if (scaleBar.style.width !== barWidth) scaleBar.style.width = barWidth;
   if (archery) renderTargetCam();
   else renderRaceTags();
   requestAnimationFrame(frame);

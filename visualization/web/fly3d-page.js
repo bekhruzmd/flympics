@@ -348,6 +348,59 @@ try {
   throw error;
 }
 
+// ---------- Drawing quality ----------
+// Slower graphics chips get fewer pixels and fewer shadows. Only the picture changes:
+// every lane still replays its own recorded run. ?quality=high|medium|low pins a level.
+const QUALITY = [
+  { name: 'high', pixelRatio: 2, shadows: 'all', shadowMap: 2048, soft: true },
+  { name: 'medium', pixelRatio: 1.25, shadows: 'main', shadowMap: 1024, soft: false },
+  { name: 'low', pixelRatio: 1, shadows: 'none', shadowMap: 1024, soft: false },
+];
+const pinnedQuality = QUALITY.findIndex(q => q.name === new URLSearchParams(location.search).get('quality'));
+let quality = pinnedQuality >= 0 ? pinnedQuality : 0;
+
+function castShadows(flyModel, on) {
+  flyModel.object.traverse(o => {
+    if (!o.isMesh) return;
+    o.userData.castsShadow ??= o.castShadow;  // wings never cast one
+    o.castShadow = on && o.userData.castsShadow;
+  });
+}
+function applyQuality() {
+  const q = QUALITY[quality];
+  renderer.setPixelRatio(Math.min(devicePixelRatio, q.pixelRatio));
+  renderer.shadowMap.type = q.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  ring.castShadow = q.shadows !== 'none';
+  if (ring.shadow.mapSize.x !== q.shadowMap) {
+    ring.shadow.mapSize.set(q.shadowMap, q.shadowMap);
+    ring.shadow.map?.dispose(); ring.shadow.map = null;
+  }
+  castShadows(fly, q.shadows !== 'none');
+  for (const other of [rival, ...reserveFlies.map(slot => slot.fly)]) castShadows(other, q.shadows === 'all');
+  document.body.dataset.quality = q.name;
+  resize();
+}
+
+// Watch real frame times while a replay plays; step down a level if the median frame is
+// slower than about 40 fps. Never steps back up, so the picture doesn't flicker.
+const frameTimes = [];
+let settleFrames = 30;
+function watchFrameRate(frameMs) {
+  if (pinnedQuality >= 0 || quality >= QUALITY.length - 1) return;
+  if (!playing || document.visibilityState !== 'visible') { frameTimes.length = 0; return; }
+  if (settleFrames > 0) { settleFrames--; return; }
+  frameTimes.push(frameMs);
+  if (frameTimes.length < 90) return;
+  const median = [...frameTimes].sort((a, b) => a - b)[45];
+  frameTimes.length = 0;
+  if (median > 25) {
+    quality++;
+    settleFrames = 30;
+    applyQuality();
+    console.info(`Flympics: frames took ${median.toFixed(0)} ms, drawing at ${QUALITY[quality].name} quality`);
+  }
+}
+
 function resize() {
   const { clientWidth: w, clientHeight: h } = canvas;
   if (!w || !h) return;
@@ -1078,6 +1131,7 @@ function renderStandings(step) {
 
 let last = performance.now(), wallTime = 0, lastRackUpdate = 0;
 function frame(now) {
+  watchFrameRate(now - last);
   const dt = Math.min(0.1, (now - last) / 1000); last = now; wallTime += dt;
   if (playing && now >= photoUntil) {
     const next = Math.min(replayEnd, index + rate * dt / race.dt);
@@ -1170,6 +1224,7 @@ try {
     scene.add(slot.holder);
     reserveFlies.push(slot);
   }
+  applyQuality();
   buildEventTabs();
   selectEvent('sprint');
 } catch (error) {

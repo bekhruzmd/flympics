@@ -48,12 +48,14 @@ settings, seeds and neuron model (gain 3) as the wind-number Archery fly; connec
 
 | Archery fly (100 held-out winds) | Mean points / 60 | Bullseye rate |
 |---|---:|---:|
-| Untrained | 42.2 | 0.19 |
-| Trained, handed the wind as a number | 55.2 | 0.56 |
-| Trained, sensing the wind through the FlyVis eye | **55.4** | **0.60** |
-| Same eye-fly, eye blindfolded (always reports no wind) | 42.6 | 0.19 |
-| Same eye-fly, eye's left and right swapped | 25.2 | 0.09 |
+| Untrained | 41.7 | 0.18 |
+| Trained, handed the wind as a number | 55.0 | 0.53 |
+| Trained, sensing the wind through the FlyVis eye | **55.6** | **0.62** |
+| Same eye-fly, eye blindfolded (always reports no wind) | 41.9 | 0.18 |
+| Same eye-fly, eye's left and right swapped | 24.3 | 0.08 |
 
+Numbers are on the current Archery event, where the wind has its own random stream per
+arrow so every controller faces identical winds (re-measured; training unchanged).
 The blindfold and swap tests show the trained fly really uses the visual signal. Its
 readout thresholds are again very close together (4.4e-6 and 1.4e-5), because the circuit
 saturates at gain 3.

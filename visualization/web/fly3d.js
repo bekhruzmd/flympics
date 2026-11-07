@@ -66,7 +66,8 @@ function jointQuaternion(name, yaw = 0, pitch = 0, roll = 0) {
   return q;
 }
 
-export async function loadFly() {
+let flyAssets;
+async function loadFlyAssets() {
   const [rigging, pose] = await Promise.all([
     fetch(`${ASSETS}rigging.yaml`).then(r => r.text()).then(parseYaml),
     fetch(`${ASSETS}neutral_pose.yaml`).then(r => r.text()).then(parseYaml),
@@ -83,14 +84,18 @@ export async function loadFly() {
   const loader = new STLLoader();
   const meshFiles = new Map();
   const names = ['c_thorax', ...Object.keys(PARENT)];
-  await Promise.all(names.map(async name => {
-    const file = name[0] === 'r' ? `l${name.slice(1)}` : name;
-    if (!meshFiles.has(file)) meshFiles.set(file, loader.loadAsync(`${ASSETS}meshes/${file}.stl`));
-  }));
+  const sourceName = name => name[0] === 'r' ? `l${name.slice(1)}` : name;
+  const files = [...new Set(names.map(sourceName))];
+  // Keep requests below the local static server's connection backlog.
+  for (let i = 0; i < files.length; i += 4) {
+    await Promise.all(files.slice(i, i + 4).map(async file => {
+      meshFiles.set(file, await loader.loadAsync(`${ASSETS}meshes/${file}.stl`));
+    }));
+  }
 
-  const parts = {};
+  const meshes = {};
   for (const name of names) {
-    const raw = (await meshFiles.get(name[0] === 'r' ? `l${name.slice(1)}` : name)).clone();
+    const raw = meshFiles.get(sourceName(name)).clone();
     raw.scale(1000, name[0] === 'r' ? -1000 : 1000, 1000);  // metres -> millimetres, mirror right side
     if (name[0] === 'r') flipWinding(raw);
     raw.deleteAttribute('normal');
@@ -98,6 +103,17 @@ export async function loadFly() {
     geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.05, ...colourOf(name) }));
     mesh.castShadow = !name.endsWith('_wing');
+    meshes[name] = mesh;
+  }
+  return { rigging, neutral, meshes };
+}
+
+export async function loadFly() {
+  const { rigging, neutral, meshes } = await (flyAssets ??= loadFlyAssets());
+  const parts = {};
+  for (const [name, template] of Object.entries(meshes)) {
+    // Each fly has its own pose, with shared scan geometry and materials.
+    const mesh = template.clone();
     const body = new THREE.Group();   // placed by rigging pos/quat (MuJoCo quats are w, x, y, z)
     const joint = new THREE.Group();  // rotated by joint angles
     const { pos, quat } = rigging[name];

@@ -33,7 +33,10 @@ class Archery(OlympicEvent):
     RELEASE is ignored until the bow is fully drawn. After steady_time the aim starts to
     wander (fatigue). An arrow not released within shot_clock scores 0.
 
-    The seed fixes the wind and the sway; the same seed always gives the same end.
+    The seed fixes the wind and the sway; the same seed always gives the same end. The
+    wind has its own random stream per seed and arrow, so every controller shooting the
+    same seed faces the same wind on arrow k at the same moment of the draw, whatever it
+    did on earlier arrows. Sway and release wobble come from a separate stream.
     score() is total points, so **higher is better** (unlike the race events).
     """
 
@@ -55,7 +58,8 @@ class Archery(OlympicEvent):
     rings: int = 10
 
     def reset(self, seed: int | None = None) -> Mapping[str, float]:
-        self.rng = np.random.default_rng(0 if seed is None else seed)
+        self._seed = 0 if seed is None else int(seed)
+        self.rng = np.random.default_rng([self._seed, 1])  # the archer's own sway and release wobble
         self._draw_steps = max(1, round(self.draw_time / self.dt))
         self._clock_steps = max(self._draw_steps + 1, round(self.shot_clock / self.dt))
         self._steady_steps = round(self.steady_time / self.dt)
@@ -72,8 +76,12 @@ class Archery(OlympicEvent):
 
     def _new_arrow(self) -> None:
         self.aim = 0.0
-        self.base_wind = _clip(float(self.rng.normal(0.0, self.wind_sd)), self.wind_max)
-        self.gust = float(self.rng.normal(0.0, self.gust_sd))
+        # The whole gust path for this arrow is drawn up front from the wind stream, so it
+        # does not depend on when (or whether) earlier arrows were released.
+        wind_rng = np.random.default_rng([self._seed, 2, self.arrow])
+        self.base_wind = _clip(float(wind_rng.normal(0.0, self.wind_sd)), self.wind_max)
+        self.gust = float(wind_rng.normal(0.0, self.gust_sd))
+        self._gust_noise = wind_rng.normal(size=self._clock_steps)
         self.arrow_steps = 0
 
     @property
@@ -129,7 +137,7 @@ class Archery(OlympicEvent):
             self.aim = _clip(self.aim, self.max_aim)
             # The gust relaxes towards 0 with correlation time gust_time (exact OU update).
             decay = math.exp(-self.dt / self.gust_time)
-            self.gust = decay * self.gust + self.gust_sd * math.sqrt(1 - decay**2) * float(self.rng.normal())
+            self.gust = decay * self.gust + self.gust_sd * math.sqrt(1 - decay**2) * float(self._gust_noise[self.arrow_steps])
             self.arrow_steps += 1
             if self.arrow_steps >= self._clock_steps:
                 self._score_arrow(None)

@@ -109,3 +109,29 @@ def test_unfinished_race_score():
     assert event.position == 0.0
     assert event.time == pytest.approx(event.max_time)
     assert event.score() == pytest.approx(event.max_time + event.distance)
+
+
+def test_controllers_face_identical_conditions_on_same_seed():
+    from controllers.pacing_baselines import PacingRuleController, RandomPacingController
+    seed = 42
+    rule_event = Pacing400m()
+    rand_event = Pacing400m()
+    rule_ctrl = PacingRuleController()
+    rand_ctrl = RandomPacingController()
+
+    obs1 = rule_event.reset(seed)
+    rule_ctrl.reset(seed)
+    while not rule_event.is_finished():
+        obs1 = rule_event.step(rule_ctrl.act(obs1))
+
+    obs2 = rand_event.reset(seed)
+    rand_ctrl.reset(seed)
+    while not rand_event.is_finished():
+        obs2 = rand_event.step(rand_ctrl.act(obs2))
+
+    assert rule_event.distance == rand_event.distance
+    assert rule_event.energy_budget == rand_event.energy_budget
+    assert rule_event.max_time == rand_event.max_time
+    assert rule_event.acceleration == rand_event.acceleration
+    assert rule_event.drag == rand_event.drag
+    assert rule_event.drag_quad == rand_event.drag_quad

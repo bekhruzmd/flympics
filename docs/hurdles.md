@@ -34,6 +34,8 @@ out, so lower is better.
 | `always_jump` | Jumps whenever it is on the ground. Never gets going |
 | `random` | Jumps 1% of steps, otherwise accelerates |
 | `fly` | The untrained connectome fly brain. It accelerates for a few steps, then coasts to a stop, because its output settles in the COAST band. Training is a separate project |
+| `trained` | Evolution-trained fly (gain 3). At gain 3 the circuit is saturated, so ES floors it: 58.35 s, 0 jumps |
+| `trained (gain 1)` | Evolution-trained fly with gain 1 (a modeling choice). Desaturates the circuit; takes an initial jump (59.25 s, 1 jump, 11 hits) |
 
 ## 1. Run one race
 
@@ -235,3 +237,27 @@ strategies, the fly brain setup and the viewer. Run them after changing anything
 `events/hurdles.py`. A changed rule can quietly change which strategy wins; the
 prototype found that an `overspeed_cost` of 0.2 is already too low for coasting to
 pay off.
+
+## 9. Evolution-strategy training and the circuit gain modeling choice
+
+Hurdles can be trained with OpenAI-ES using `experiments/train_hurdles_es.py`.
+Stage 1 imitates the rule baseline with teacher-forcing on recorded states, and Stage 2 optimizes the race outcome.
+
+### Gain 3 vs Gain 1 modeling choice
+
+- **Default gain 3.0 (`models/hurdles_es.json`):**
+  At gain 3.0, the recurrent weights of the MANC front leg connectome push the activation `np.tanh(drive)` into extreme saturation. Both extensor and flexor motor pools saturate near ~0.995, leaving virtually zero dynamic range for sensory stimulus to modulate motor difference (extensor − flexor). As a result, the evolution strategy converges to flooring the accelerator: 58.35 s on the benchmark, hitting all 11 hurdles and taking 0 jumps (56.63 s mean on held-out seeds 1000–1049).
+
+- **Gain 1.0 (`models/hurdles_es_gain1.json`):**
+  The rate network gain is an engineering assumption (a modeling choice, not measured connectome data). Training with `--gain 1.0` reduces recurrence saturation so sensory inputs can influence the motor outputs. Under gain 1.0, the trained fly takes an initial jump at the beginning of the race (step 5, t=0.25 s) and coasts twice, finishing the benchmark in 59.25 s (1 jump, 2 coasts, 11 hits). On the 50 held-out seeds (1000–1049), it averages 57.52 s, 1.0 jump, 7.24 coasts, and 9.7 hits. However, it does not achieve coordinated jumping over hurdles: jumping outside the narrow hurdle-clearance window costs speed without clearing the hurdle, so the ES policy settles for accelerating through the hurdles rather than risking ill-timed jumps.
+
+### Performance comparison
+
+| Controller | Benchmark Time | Benchmark Hits | Benchmark Jumps | Held-out Mean Time (seeds 1000–1049) | Held-out Mean Hits | Held-out Mean Jumps |
+|------------|----------------|----------------|-----------------|--------------------------------------|--------------------|---------------------|
+| `rule` | **48.10 s** | **0** | **11** | **47.67 s** | **0.0** | **9.7** |
+| `trained` (gain 3) | 58.35 s | 11 | 0 | 56.63 s | 9.7 | 0.0 |
+| `trained` (gain 1) | 59.25 s | 11 | 1 | 57.52 s | 9.7 | 1.0 |
+| `fly` (untrained, gain 3) | 58.35 s | 11 | 0 | 56.63 s | 9.7 | 0.0 |
+| `random` | 62.45 s | 11 | 9 | 60.75 s | 9.7 | 9.7 |
+

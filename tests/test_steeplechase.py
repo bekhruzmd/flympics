@@ -85,3 +85,26 @@ def test_run_records_and_score():
     assert records[-1]["position"] == 600.0
     assert score(records) == pytest.approx(records[-1]["simulation_time"])
     assert run("rule", seed=1) == run("rule", seed=2)  # the course ignores the seed
+
+
+def test_controllers_face_identical_conditions_on_same_seed():
+    seed = 42
+    rule_event = Steeplechase()
+    rand_event = Steeplechase()
+    rule_ctrl = SteepleRuleController()
+    rand_ctrl = RandomController()
+
+    obs1 = rule_event.reset(seed)
+    rule_ctrl.reset(seed)
+    while not rule_event.is_finished():
+        obs1 = rule_event.step(rule_ctrl.act(obs1))
+
+    obs2 = rand_event.reset(seed)
+    rand_ctrl.reset(seed)
+    while not rand_event.is_finished():
+        obs2 = rand_event.step(rand_ctrl.act(obs2))
+
+    assert rule_event.barriers == rand_event.barriers
+    assert rule_event.water == rand_event.water
+    assert rule_event._pits == rand_event._pits
+    assert rule_event.distance == rand_event.distance

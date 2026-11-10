@@ -130,3 +130,28 @@ def test_unfinished_race_score():
 def test_illegal_action():
     with pytest.raises(ValueError):
         fresh().step("KICK")
+
+
+def test_controllers_face_identical_conditions_on_same_seed():
+    from controllers.swim_baselines import RandomController, SwimRuleController
+    seed = 42
+    rule_event = Swimming()
+    rand_event = Swimming()
+    rule_ctrl = SwimRuleController()
+    rand_ctrl = RandomController()
+
+    obs1 = rule_event.reset(seed)
+    rule_ctrl.reset(seed)
+    while not rule_event.is_finished():
+        obs1 = rule_event.step(rule_ctrl.act(obs1))
+
+    obs2 = rand_event.reset(seed)
+    rand_ctrl.reset(seed)
+    while not rand_event.is_finished():
+        obs2 = rand_event.step(rand_ctrl.act(obs2))
+
+    assert rule_event.distance == rand_event.distance
+    assert rule_event.pool_length == rand_event.pool_length
+    assert rule_event.dive_speed == rand_event.dive_speed
+    assert rule_event.push_off == rand_event.push_off
+    assert rule_event.max_time == rand_event.max_time

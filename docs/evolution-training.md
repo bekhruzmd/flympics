@@ -101,6 +101,11 @@ measured again with the ordinary controller after training.
   trained fly takes an initial jump (59.25 s on benchmark, 1 jump, 2 coasts; 57.52 s mean,
   1.0 jumps on held-out seeds) while still hitting the hurdles due to narrow clearance windows.
 
+## Noise robustness
+
+The trained thresholds sit within ~1e-5 of zero. How the flies hold up under neural
+noise is measured in [noise-robustness.md](noise-robustness.md).
+
 ## Caveats
 
 This is task-specific tuning of artificial input and output mappings around a fixed,

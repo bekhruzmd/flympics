@@ -32,11 +32,10 @@ button { font: inherit; color: inherit; }
   min-height: 100vh;
   overflow-x: clip;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2.6fr) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(calc(var(--u) * 18.4), 1fr) minmax(0, 2.8fr) minmax(0, 1.15fr);
+  grid-template-rows: minmax(max-content, 1fr) auto auto auto;
   grid-template-areas:
-    "mast  pad   read"
-    "mast  pad   read"
+    "mast  pad   brain"
     "ruler ruler ruler"
     "rack  rack  rack"
     "fine  fine  fine";
@@ -59,7 +58,7 @@ h1 span {
   font: 400 calc(var(--u) * 1.15)/1.1 var(--marker); letter-spacing: 0; text-transform: none;
   transform: rotate(-2deg); box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
 }
-.events { display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--u) * .45); margin-top: auto; }
+.events { display: grid; grid-template-columns: repeat(2, max-content); align-items: start; gap: calc(var(--u) * .45); margin-top: auto; }
 .events .tape-button { font-size: calc(var(--u) * 1.15); background: var(--tape-shade); }
 .events .tape-button[aria-checked="true"] { background: var(--tape); outline: 2px solid var(--ink); outline-offset: -5px; transform: translateX(calc(var(--u) * .6)); }
 
@@ -75,7 +74,7 @@ h1 span {
 }
 #scene:active { cursor: grabbing; }
 .scale-bar {
-  position: absolute; left: 0; bottom: calc(var(--u) * .2); margin: 0; display: flex; align-items: center; gap: .6em;
+  position: absolute; left: 0; top: 0; margin: 0; display: flex; align-items: center; gap: .6em;
   font-size: calc(var(--u) * .85); color: var(--tape); font-variant-numeric: tabular-nums;
 }
 .scale-bar i { display: block; width: 40px; height: 5px; background: var(--tape); }
@@ -87,7 +86,20 @@ h1 span {
 }
 
 /* Readouts: strips of label tape */
-.readouts { grid-area: read; display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u) * .55); align-items: stretch; }
+.hud { position: absolute; left: 0; bottom: 0; z-index: 1; display: flex; flex-wrap: wrap; align-items: flex-end; gap: calc(var(--u) * .5); max-width: 64%; }
+.hud .tape { padding: .3em .7em .25em; min-width: calc(var(--u) * 6.2); }
+.hud .tape span { font-size: calc(var(--u) * .62); }
+.hud .tape output { font-size: calc(var(--u) * 1.45); }
+.hud .tape small { font-size: calc(var(--u) * .8); }
+.hud .tape-action output { font-size: calc(var(--u) * 1.05); }
+.hint { margin: 0; font-size: calc(var(--u) * .72); color: var(--muted); }
+.hint kbd { padding: 0 .35em; border: 1px solid var(--muted); border-radius: 3px; font: inherit; }
+.brain-area { grid-area: brain; display: flex; flex-direction: column; justify-content: flex-start; gap: calc(var(--u) * 1); min-width: 0; }
+.eye-panel h2 { margin: 0 0 calc(var(--u) * .4); font-size: calc(var(--u) * .95); font-weight: 800; font-stretch: 87%; text-transform: uppercase; }
+.eye-gauge { position: relative; display: flex; justify-content: space-between; padding: calc(var(--u) * 1.6) 0 0; font-size: calc(var(--u) * .66); color: var(--muted);
+  background: linear-gradient(var(--bench-line), var(--bench-line)) center calc(var(--u) * .6) / 100% 4px no-repeat; }
+.eye-gauge i { position: absolute; top: 0; left: 50%; width: 6px; height: calc(var(--u) * 1.2); margin-left: -3px; background: var(--blue); transition: left .12s linear; }
+.eye-gauge::after { content: ""; position: absolute; top: calc(var(--u) * .2); left: 50%; width: 2px; height: calc(var(--u) * .8); background: var(--muted); }
 .tape {
   position: relative; margin: 0; display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: .4em;
   padding: .35em .85em .3em; background: var(--tape); color: var(--ink);
@@ -133,7 +145,10 @@ h1 span {
 .fast[aria-pressed="true"] { background: var(--tape); outline: 2px solid var(--ink); outline-offset: -5px; }
 
 /* Ruler: one crank for everything */
-.ruler-area { grid-area: ruler; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--u); }
+.ruler-area { grid-area: ruler; display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: var(--u); }
+.transport { display: flex; flex-wrap: wrap; gap: calc(var(--u) * .4); align-items: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.transport .tape-button { padding: .4em .8em .35em; font-size: calc(var(--u) * 1); }
 .ruler-label { font-size: calc(var(--u) * .78); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .ruler {
   position: relative; height: calc(var(--u) * 2.6); background: var(--tape);
@@ -144,6 +159,7 @@ h1 span {
 .ruler-ticks { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; }
 .ruler-ticks li { position: absolute; top: 0; height: 35%; border-left: 2px solid var(--ink); }
 .ruler-ticks li.major { height: 55%; }
+.ruler-ticks li:last-child b { left: auto; right: 4px; }
 .ruler-ticks li b { position: absolute; top: 105%; left: 4px; font: 700 calc(var(--u) * .85)/1 var(--face); font-variant-numeric: tabular-nums; }
 #timeline { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: ew-resize; }
 #timeline:disabled { cursor: default; }
@@ -198,13 +214,13 @@ h1 span {
 .fine-print b { color: var(--tape); }
 
 @media (min-width: 901px) {
-  .bench { height: 100svh; min-height: 640px; }
+  .bench { min-height: max(100svh, 640px); }
 }
 
 @media (max-width: 900px) {
   .bench {
     grid-template-columns: 1fr;
-    grid-template-areas: "mast" "pad" "read" "ruler" "rack" "fine";
+    grid-template-areas: "mast" "pad" "brain" "ruler" "rack" "fine";
     grid-template-rows: auto auto auto auto auto auto;
     padding: 20px 16px 28px;
     --u: 15px;
@@ -215,8 +231,9 @@ h1 span {
   .events .tape-button[aria-checked="true"] { transform: translateY(-3px); }
   h1 { font-size: 46px; }
   .pad-area { height: 62vw; min-height: 260px; }
-  .readouts { display: grid; grid-template-columns: 1fr 1fr; }
-  .readouts .deck { grid-column: 1 / -1; }
+  .hud { max-width: 100%; }
+  .hud .tape { min-width: 0; }
+  #circuit { height: 180px; }
   .rack-area { grid-template-columns: 1fr; gap: 6px; }
   .rack { gap: 10px; padding: 0 4px; margin-top: 30px; }
   .vial[aria-checked="true"] .vial-label { outline-width: 2px; outline-offset: -4px; }
@@ -225,6 +242,7 @@ h1 span {
   .vial-label small:not(.vial-result) { display: none; }
   .vial-label .vial-result { font-size: 11px; }
   .ruler-area { grid-template-columns: 1fr; gap: 6px; }
+  .transport { order: -1; }
   .ruler-ticks li:not(.major) { height: 22%; }
   .fine-print { grid-template-columns: 1fr; gap: 10px; }
 }
@@ -238,18 +256,19 @@ h1 span {
 
 /* The circuit panel: the 135 MANC neurons, lit by modeled activity */
 .rack-side { align-self: end; }
-.circuit { margin-top: calc(var(--u) * .8); }
+.circuit { margin: 0; }
 .circuit h2 { margin: 0 0 calc(var(--u) * .4); font-size: calc(var(--u) * .95); font-weight: 800; font-stretch: 87%; text-transform: uppercase; }
-#circuit { display: block; width: 100%; height: calc(var(--u) * 6.5); }
+#circuit { display: block; width: 100%; height: clamp(100px, calc(var(--u) * 7), 14vh); }
 .circuit-note { margin: calc(var(--u) * .3) 0 0; font-size: calc(var(--u) * .72); color: var(--muted); }
 
 /* What the eye reports, in Archery */
 .eye-tag {
-  position: absolute; right: 4%; bottom: calc(var(--u) * 3.4); margin: 0; padding: .35em .9em .3em;
+  position: absolute; right: 2%; top: calc(var(--u) * 3); margin: 0; padding: .35em .9em .3em;
   background: var(--blue); color: var(--ink); font: 400 calc(var(--u) * 1)/1.1 var(--marker);
   transform: rotate(-2deg); box-shadow: 0 2px 6px rgba(0, 0, 0, .5);
 }
-.eye-modes { position: absolute; right: 4%; bottom: calc(var(--u) * .4); flex-wrap: wrap; justify-content: flex-end; }
+.eye-modes .tape-button { font-size: calc(var(--u) * .9); padding: .45em .65em; }
+.eye-modes { margin-top: calc(var(--u) * .6); flex-wrap: wrap; }
 .eye-modes .tape-button[aria-checked="true"] { background: var(--tape); outline: 2px solid var(--ink); outline-offset: -5px; }
 
 /* Presenter mode: the story caption across the top of the pad */
@@ -268,4 +287,65 @@ h1 span {
   .eye-tag { font-size: 12px; }
   .rack { gap: 6px; }
   .vial { width: 62px; }
+}
+
+/* Archery arena: opponent picker, versus score and the target close-up label */
+.rival-pick { display: flex; flex-direction: column; gap: .3em; margin-top: calc(var(--u) * .6); font-size: calc(var(--u) * .72); color: var(--muted); }
+.rival-pick select { font: 400 calc(var(--u) * .95)/1.1 var(--marker); color: var(--ink); background: var(--tape); border: 0; padding: .35em .5em; box-shadow: 0 2px 6px rgba(0, 0, 0, .45); }
+.tape-versus { background: var(--tape-shade); }
+.target-cam-label {
+  position: absolute; margin: 0; padding: .15em 0; text-align: center; pointer-events: none;
+  font: 700 calc(var(--u) * .7)/1 var(--face); letter-spacing: .06em; text-transform: uppercase; color: var(--tape);
+}
+.lane-tag {
+  position: absolute; margin: 0; transform: translate(-50%, -100%) rotate(-2deg); pointer-events: none; white-space: nowrap;
+  padding: .25em .7em .2em; background: var(--tape); color: var(--ink); font: 400 calc(var(--u) * .9)/1.1 var(--marker);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
+.lane-tag-rival { background: var(--tape-shade); transform: translate(-50%, -100%) rotate(1.5deg); }
+
+/* Race replay: keep the action tapes outside the camera viewport. */
+[hidden] { display: none !important; }
+.arena-view { position: absolute; inset: 0; }
+.pad-area.is-race { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: calc(var(--u) * .55); }
+.is-race .arena-view { position: relative; min-height: 0; }
+.is-race .hud { position: static; max-width: none; }
+.is-race .lane-tag { font-size: clamp(11px, .8vw, 15px); transform: translate(-50%, -100%); }
+.is-race .lane-tag-rival { background: var(--tape-shade); }
+.photo-tape {
+  position: absolute; right: 0; top: 0; margin: 0; padding: .35em .7em;
+  background: var(--yellow); color: var(--ink); font: 400 calc(var(--u) * .95)/1 var(--marker);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45); transform: rotate(2deg);
+}
+
+.race-sheet {
+  --sheet-rule: #b9b5a6;
+  background: var(--tape); color: var(--ink); padding: .65em .75em .6em;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, .45);
+}
+.race-sheet h2 { margin: 0 0 .35em; font: 400 calc(var(--u) * 1.15)/1.2 var(--marker); }
+.race-sheet[data-results="true"] h2 { color: var(--amber-deep); }
+.race-sheet table { width: 100%; border-collapse: collapse; font-size: clamp(11px, .79em, 16px); line-height: 1.25; font-variant-numeric: tabular-nums; }
+.race-sheet th, .race-sheet td { padding: .32em .3em; border-top: 1px solid var(--sheet-rule); text-align: left; }
+.race-sheet thead th { color: #5a5a52; font-size: .78em; letter-spacing: .06em; text-transform: uppercase; }
+.race-sheet td:last-child, .race-sheet thead th:last-child { text-align: right; white-space: nowrap; }
+.race-sheet tbody th { font-weight: 700; }
+.race-sheet tr[data-main="true"] { background: var(--tape-shade); }
+.race-sheet .lane-number { display: block; font-size: .8em; color: #5a5a52; }
+.race-sheet .energy { display: flex; align-items: center; flex-wrap: wrap; gap: .2em .5em; color: #5a5a52; font-size: .8em; font-weight: 500; }
+.race-sheet meter { width: 4em; height: .75em; accent-color: var(--green); }
+
+@media (max-width: 900px) {
+  .bench:has(.is-race) { grid-template-areas: "mast" "pad" "ruler" "brain" "rack" "fine"; }
+  .pad-area.is-race { height: auto; grid-template-rows: clamp(240px, 62vw, 440px) auto; }
+  .rack { grid-auto-flow: initial; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); row-gap: 24px; }
+  .vial { width: min(100%, 62px); }
+}
+
+.is-race .edge-marker { background: var(--tape-shade); padding-left: 1.8em; }
+.edge-marker::before {
+  content: ""; position: absolute; left: .5em; top: calc(50% - 4px);
+  width: 0; height: 0; border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent; border-left: 7px solid var(--ink);
+  transform: rotate(var(--pointer-angle)); transform-origin: 3px 4px;
 }

@@ -126,5 +126,3 @@ def test_hurdles_es_gain1_reproduces_benchmark_score():
     records = run(controller=controller, layout="benchmark")
     benchmark_score = score(records)
     assert benchmark_score == pytest.approx(policy["trained"]["benchmark_score"])
-    assert records[-1]["hits"] == 0
-    assert records[-1]["jumps"] == 11

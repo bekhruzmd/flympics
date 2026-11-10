@@ -20,6 +20,7 @@ const EVENTS = {
     note: 'Hurdles: the jumps are part of the race physics. Hurdles are half a body length tall.',
     controllers: [
       UNTRAINED,
+      { id: 'trained', name: 'Trained fly', note: 'MANC circuit, evolution-trained; never jumps' },
       { id: 'rule', name: 'Rule', note: 'Brakes to a safe speed, then jumps' },
       { id: 'nocoast', name: 'Rule, no brakes', note: 'Jumps too fast and loses speed' },
       { id: 'random', name: 'Random', note: 'Seeded random jumps' },

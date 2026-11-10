@@ -169,11 +169,21 @@ class FlyBrainController(Controller):
         stimulus = self.encoder.encode(dict(observation))
         activity = self.network.step(stimulus)
         action, motor = self.decoder.decode(activity)
+        population_indices = {
+            "sensory": self.encoder.indices,
+            "intrinsic": self.circuit.indices("intrinsic"),
+            "extensor": self.circuit.indices("motor_extensor"),
+            "flexor": self.circuit.indices("motor_flexor"),
+        }
         self.last_summary = {
             "sensory_mean": float(activity[self.encoder.indices].mean()),
             "intrinsic_mean": float(activity[self.circuit.indices("intrinsic")].mean()),
             "motor_extensor": motor["extensor"],
             "motor_flexor": motor["flexor"],
             "motor_difference": motor["difference"],
+            **{
+                f"{group}_over_095_pct": float(np.mean(activity[indices] > 0.95) * 100.0)
+                for group, indices in population_indices.items()
+            },
         }
         return action

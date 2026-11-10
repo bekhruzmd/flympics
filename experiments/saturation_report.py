@@ -43,6 +43,9 @@ DEFAULT_GAINS = (0.5, 1.0, 1.5, 2.0, 3.0)
 GROUPS = (("sensory", "sensory_mean"), ("intrinsic", "intrinsic_mean"),
           ("extensor", "motor_extensor"), ("flexor", "motor_flexor"))
 SATURATION_GROUPS = tuple((group, f"{group}_over_095_pct") for group, _ in GROUPS)
+CIRCUIT_ROLES = {"sensory": "sensory", "intrinsic": "intrinsic",
+                 "extensor": "motor_extensor", "flexor": "motor_flexor"}
+SATURATED = 0.95
 SETTLE_STEPS = 50  # steps of constant input before reading the motor difference
 HELD_LEVEL = 0.5   # level of the inputs that are not being tested
 
@@ -154,12 +157,28 @@ def measure(spec: EventSpec, gain: float) -> dict:
     """One row of the report: group activity, input effects and score at this gain."""
     fly = spec.make_fly()
     fly.network.gain = gain
-    records = spec.race(fly)
+    # Count saturated neurons on each race step by watching the network from outside, so
+    # the controller itself stays unchanged.
+    indices = {group: fly.circuit.indices(role) for group, role in CIRCUIT_ROLES.items()}
+    saturated = {key: [] for _, key in SATURATION_GROUPS}
+    plain_step = fly.network.step
+
+    def counting_step(stimulus, *args, **kwargs):
+        activity = plain_step(stimulus, *args, **kwargs)
+        for group, key in SATURATION_GROUPS:
+            saturated[key].append(float(np.mean(activity[indices[group]] > SATURATED) * 100.0))
+        return activity
+
+    fly.network.step = counting_step
+    try:
+        records = spec.race(fly)
+    finally:
+        del fly.network.step  # back to the class's own step
     row = {"event": spec.name, "gain": gain}
     for group, key in GROUPS:
         row[f"{group}_mean"] = float(np.mean([record[key] for record in records]))
-    for group, key in SATURATION_GROUPS:
-        row[key] = float(np.mean([record[key] for record in records]))
+    for _, key in SATURATION_GROUPS:
+        row[key] = float(np.mean(saturated[key]))
     row["difference_mean"] = float(np.mean([record["motor_difference"] for record in records]))
     input_ranges = spec.input_ranges or ((0.0, 1.0, HELD_LEVEL),) * len(spec.inputs)
     if len(input_ranges) != len(spec.inputs):

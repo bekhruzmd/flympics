@@ -2,13 +2,18 @@
 
 The saturation report compares the untrained MANC rate-network controller across Sprint,
 Hurdles, Swimming, Pacing, Steeplechase, and Archery at gains `0.5, 1, 1.5, 2, 3`.
+Gain is a modeling choice, not MANC data: the connections come from MANC, but how
+strongly each neuron responds to its total input is our assumption (`RateNetwork`
+defaults to 3.0, and this report does not change that default).
+
 Run one event with:
 
-```powershell
-.venv/Scripts/python -m experiments.saturation_report --event sprint
+```sh
+python -m experiments.saturation_report --event sprint
 ```
 
 Each run writes `results/saturation/<event>.csv` and `.png` and prints a results table.
+`results/` is not tracked in git, so run the script to regenerate them.
 
 ## Measurements
 
@@ -42,16 +47,31 @@ motor groups are almost entirely above 0.95 in five events. Archery remains less
 by this threshold and its score rises with gain, so saturation does not imply the same
 behavioral outcome for every decoder or event.
 
-## Results
+## Across gains
 
-| Event | Plot | Full table (CSV) |
-|---|---|---|
-| Sprint | [PNG](../results/saturation/sprint.png) | [CSV](../results/saturation/sprint.csv) |
-| Hurdles | [PNG](../results/saturation/hurdles.png) | [CSV](../results/saturation/hurdles.csv) |
-| Swimming | [PNG](../results/saturation/swimming.png) | [CSV](../results/saturation/swimming.csv) |
-| Pacing | [PNG](../results/saturation/pacing.png) | [CSV](../results/saturation/pacing.csv) |
-| Steeplechase | [PNG](../results/saturation/steeplechase.png) | [CSV](../results/saturation/steeplechase.csv) |
-| Archery | [PNG](../results/saturation/archery.png) | [CSV](../results/saturation/archery.csv) |
+The untrained fly's score at each gain (same setups as above):
+
+| Event | 0.5 | 1 | 1.5 | 2 | 3 |
+|---|---:|---:|---:|---:|---:|
+| Sprint (s) | 18.8 | 18.8 | 153.8 | 155.3 | 156.9 |
+| Hurdles (s) | 58.4 | 58.4 | 286.9 | 287.7 | 288.0 |
+| Swimming (s) | 205.2 | 205.2 | 202.7 | 201.8 | 201.2 |
+| Pacing (s) | 198.2 | 198.2 | 631.2 | 633.2 | 635.3 |
+| Steeplechase (s) | 238.5 | 238.5 | 833.8 | 835.3 | 836.9 |
+| Archery (points / 60) | 0 | 0 | 44 | 46 | 47 |
+
+Intrinsic and motor neurons go from none above 0.95 at gain 1.5 to nearly all of them at
+gain 2, so the switch into saturation happens between those two gains.
+
+At gain 1 or lower, the untrained fly finishes Sprint, Hurdles, Pacing and Steeplechase,
+where at gain 3 it times out. That is not the fly getting smarter: the untrained decoder's
+threshold now falls on the "accelerate" side, so it pushes on every step (in Sprint that is
+already the fastest possible time). Archery goes the other way: at low gain the untrained
+fly never releases, so it scores 0. What lower gain does buy is input sensitivity: in
+Sprint the distance input moves extensor minus flexor by 2.2e-2 at gain 0.5 versus 3.1e-6
+at gain 3, so training has something to work with.
+
+![Sprint saturation vs gain](saturation_sprint.png)
 
 ## Limits
 

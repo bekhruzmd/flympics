@@ -1,8 +1,9 @@
-# Evolution-strategy training (Archery, Steeplechase)
+# Evolution-strategy training (Archery, Steeplechase, Hurdles)
 
 ```powershell
 .venv/Scripts/python -m experiments.train_archery
 .venv/Scripts/python -m experiments.train_steeplechase
+.venv/Scripts/python -m experiments.train_hurdles_es
 ```
 
 Each writes `models/<event>.json` (policy and results) and `models/<event>_encoder.csv`
@@ -12,10 +13,10 @@ Each writes `models/<event>.json` (policy and results) and `models/<event>_encod
 
 | Part | Status |
 |------|--------|
-| Encoder weights `E` (24 × 3 for Archery, 24 × 5 for Steeplechase) | **trained** |
+| Encoder weights `E` (24 × 3 for Archery, 24 × 5 for Steeplechase, 24 × 3 for Hurdles) | **trained** |
 | Decoder band thresholds on extensor − flexor (two per event) | **trained** |
 | Tonic drive 0.45 and input normalisation | frozen |
-| MANC connectome `W`, gain 3.0, leak 0.35, 2 substeps, motor populations | frozen |
+| MANC connectome `W`, gain 3.0 (or 1.0 modeling choice in Hurdles), leak 0.35, 2 substeps, motor populations | frozen |
 
 Training hashes the connectome before and after and stops with an error if it changed.
 
@@ -92,6 +93,18 @@ measured again with the ordinary controller after training.
 - **Steeplechase:** minus the race score. The course is fixed, so this is one race per
   candidate. There is no held-out course: the result says the circuit can be tuned to this
   race, not that it learned steeplechase in general.
+- **Hurdles:** minus the race time (higher is better) over 12 training layouts (seeds 0–11).
+  Reported results evaluate on the benchmark course and 50 held-out seeds (1000–1049).
+  At default gain 3.0, recurrent saturation drives motor populations near 0.995, so ES
+  converges to always accelerating (58.35 s, 0 jumps). As a modeling choice, `--gain 1.0`
+  desaturates the recurrence, allowing sensory input to modulate motor differences; the
+  trained fly takes an initial jump (59.25 s on benchmark, 1 jump, 2 coasts; 57.52 s mean,
+  1.0 jumps on held-out seeds) while still hitting the hurdles due to narrow clearance windows.
+
+## Noise robustness
+
+The trained thresholds sit within ~1e-5 of zero. How the flies hold up under neural
+noise is measured in [noise-robustness.md](noise-robustness.md).
 
 ## Caveats
 

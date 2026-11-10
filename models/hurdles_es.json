@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "event": "hurdles",
+  "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights and band thresholds: teacher-forced imitation of the rule baseline (thresholds fitted exactly per candidate), then the event outcome; connectome and dynamics frozen",
+  "encoder": "hurdles_es_encoder.csv",
+  "inputs": [
+    "next_hurdle",
+    "second_hurdle",
+    "velocity"
+  ],
+  "actions": [
+    "COAST",
+    "ACCELERATE",
+    "JUMP"
+  ],
+  "thresholds": [
+    -0.0162126663636029,
+    0.14051523621338907
+  ],
+  "hyperparameters": {
+    "generations": 1,
+    "pairs": 24,
+    "population": 49,
+    "weight_sigma": 0.3,
+    "threshold_sigma": 0.02,
+    "lr": 0.05,
+    "seed": 0,
+    "train_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "imitation_generations": 1,
+    "start_sigma": 0.5
+  },
+  "train_fitness": -56.85833333333334,
+  "training_seconds": 33.2,
+  "trained": {
+    "benchmark_score": 58.35,
+    "benchmark_finished": true,
+    "benchmark_time": 58.35,
+    "benchmark_hits": 11,
+    "benchmark_jumps": 0,
+    "benchmark_coasts": 0,
+    "held_out_seeds": "1000-1049",
+    "held_out_mean_score": 56.625,
+    "held_out_min_score": 51.6,
+    "held_out_max_score": 60.85,
+    "held_out_finished_rate": 1.0,
+    "held_out_mean_hits": 9.7,
+    "held_out_mean_jumps": 0.0,
+    "held_out_mean_coasts": 0.0
+  },
+  "untrained": {
+    "benchmark_score": 288.047,
+    "benchmark_finished": false,
+    "benchmark_time": 90.0,
+    "benchmark_hits": 0,
+    "benchmark_jumps": 0,
+    "benchmark_coasts": 1795,
+    "held_out_seeds": "1000-1049",
+    "held_out_mean_score": 288.336,
+    "held_out_min_score": 288.047,
+    "held_out_max_score": 288.438,
+    "held_out_finished_rate": 0.0,
+    "held_out_mean_hits": 0.0,
+    "held_out_mean_jumps": 0.0,
+    "held_out_mean_coasts": 1795.74
+  }
+}

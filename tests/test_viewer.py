@@ -40,12 +40,16 @@ def without_activity(rows):
 
 
 def test_viewer_event_runs_match_their_runners():
+    from brain.connectome import load_manc_front_leg_circuit
     from experiments import run_hurdles, run_swimming
     from experiments.serve_view import HURDLES_CONTROLLERS, SWIMMING_CONTROLLERS
     events = viewer_payload(7)['events']
     assert events['hurdles']['hurdles'] == list(run_hurdles.course('benchmark', 7))
     for name in HURDLES_CONTROLLERS:
         assert without_activity(events['hurdles']['runs'][name]) == run_hurdles.run(name, 7, 'benchmark')
+    size = load_manc_front_leg_circuit().size
+    assert all(len(row['neuron_activity']) == size for row in events['hurdles']['runs']['trained'])
+    assert 'neuron_activity' not in events['hurdles']['runs']['rule'][0]
     for name in SWIMMING_CONTROLLERS:
         assert without_activity(events['swimming']['runs'][name]) == run_swimming.run(name, 7)
     assert events['swimming']['pool_length'] == 50.0

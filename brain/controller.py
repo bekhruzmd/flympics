@@ -57,7 +57,7 @@ class FlyBrainController(Controller):
     def __init__(self, motor_threshold: float = 0.015,
                  encoder_weights: Path | np.ndarray | None = None,
                  circuit: ConnectomeCircuit | None = None, *,
-                 encoder=None, decoder: MotorDecoder | None = None) -> None:
+                 encoder=None, decoder: MotorDecoder | None = None, noise: float = 0.0) -> None:
         if not math.isfinite(motor_threshold) or not 0 <= motor_threshold <= 1:
             raise ValueError("Motor threshold must be finite and between 0 and 1.")
         if encoder is not None and encoder_weights is not None:
@@ -71,7 +71,7 @@ class FlyBrainController(Controller):
             if not isinstance(encoder_weights, np.ndarray):
                 encoder_weights = load_encoder_weights(Path(encoder_weights), self.circuit)
             self.encoder = LearnedSensoryEncoder(self.circuit, encoder_weights)
-        self.network = RateNetwork(self.circuit)
+        self.network = RateNetwork(self.circuit, noise=noise)
         self.decoder = decoder if decoder is not None else MotorDecoder(self.circuit, threshold=motor_threshold)
         self.last_summary: dict[str, float] = {}
 
@@ -100,7 +100,7 @@ class FlyBrainController(Controller):
 
     @classmethod
     def band_event(cls, event: str, weights: Path | np.ndarray, thresholds,
-                   circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+                   circuit: ConnectomeCircuit | None = None, noise: float = 0.0) -> FlyBrainController:
         """Build a band-decoder controller from encoder weights (array or CSV) and thresholds."""
         if event not in BAND_EVENTS:
             raise ValueError(f"Unknown band event {event!r}; choose from {sorted(BAND_EVENTS)}")
@@ -108,19 +108,20 @@ class FlyBrainController(Controller):
         circuit = circuit if circuit is not None else load_manc_front_leg_circuit()
         if not isinstance(weights, np.ndarray):
             weights = load_encoder_weights(Path(weights), circuit, inputs)
-        return cls(circuit=circuit, encoder=encoder(circuit, weights), decoder=decoder(circuit, thresholds))
+        return cls(circuit=circuit, encoder=encoder(circuit, weights), decoder=decoder(circuit, thresholds),
+                   noise=noise)
 
     @classmethod
     def archery(cls, path: Path = ARCHERY_ENCODER_INIT, thresholds=ARCHERY_INITIAL_THRESHOLDS,
-                circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+                circuit: ConnectomeCircuit | None = None, noise: float = 0.0) -> FlyBrainController:
         """Untrained Archery fly: starting encoder weights and placeholder thresholds."""
-        return cls.band_event("archery", path, thresholds, circuit)
+        return cls.band_event("archery", path, thresholds, circuit, noise)
 
     @classmethod
     def steeplechase(cls, path: Path = STEEPLECHASE_ENCODER_INIT, thresholds=STEEPLECHASE_INITIAL_THRESHOLDS,
-                     circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+                     circuit: ConnectomeCircuit | None = None, noise: float = 0.0) -> FlyBrainController:
         """Untrained Steeplechase fly: starting encoder weights, Hurdles' placeholder thresholds."""
-        return cls.band_event("steeplechase", path, thresholds, circuit)
+        return cls.band_event("steeplechase", path, thresholds, circuit, noise)
 
     @classmethod
     def pacing(cls, path: Path = PACING_ENCODER_INIT, thresholds=PACING_INITIAL_THRESHOLDS,
@@ -135,7 +136,8 @@ class FlyBrainController(Controller):
         return cls.from_policy(path, circuit)
 
     @classmethod
-    def from_policy(cls, path: Path, circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
+    def from_policy(cls, path: Path, circuit: ConnectomeCircuit | None = None,
+                    noise: float = 0.0) -> FlyBrainController:
         """Load a trained band-decoder controller from its policy JSON."""
         path = Path(path)
         if not path.exists():
@@ -143,7 +145,7 @@ class FlyBrainController(Controller):
         policy = json.loads(path.read_text())
         if policy.get("version") != 1 or policy.get("event") not in BAND_EVENTS:
             raise ValueError(f"{path}: expected a version 1 band policy for {sorted(BAND_EVENTS)}.")
-        return cls.band_event(policy["event"], path.parent / policy["encoder"], policy["thresholds"], circuit)
+        return cls.band_event(policy["event"], path.parent / policy["encoder"], policy["thresholds"], circuit, noise)
 
     @classmethod
     def trained(cls, path: Path = SPRINT_POLICY, circuit: ConnectomeCircuit | None = None) -> FlyBrainController:
@@ -162,7 +164,8 @@ class FlyBrainController(Controller):
         return cls(encoder_weights=path)
 
     def reset(self, seed: int | None = None) -> None:
-        self.network.reset()
+        """Silence the network; a seed also reseeds its noise (only drawn when noise > 0)."""
+        self.network.reset(seed)
         self.last_summary = {}
 
     def act(self, observation: Mapping[str, float]) -> str:

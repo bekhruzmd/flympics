@@ -25,14 +25,19 @@ from .dynamics import RateNetwork
 
 
 class BatchedRateNetwork:
-    """RateNetwork for a batch of independent states; same update, dense weights."""
+    """RateNetwork for a batch of independent states; same update, dense weights.
 
-    def __init__(self, circuit: ConnectomeCircuit, batch: int, leak: float = 0.35, gain: float = 3.0):
-        reference = RateNetwork(circuit, leak=leak, gain=gain)
-        self.leak, self.gain = reference.leak, reference.gain
+    noise and seed work as in RateNetwork; every batch row gets its own noise draws.
+    """
+
+    def __init__(self, circuit: ConnectomeCircuit, batch: int, leak: float = 0.35, gain: float = 3.0,
+                 noise: float = 0.0, seed: int | None = None):
+        reference = RateNetwork(circuit, leak=leak, gain=gain, noise=noise)
+        self.leak, self.gain, self.noise = reference.leak, reference.gain, reference.noise
         self.weights_t = circuit.weights.toarray().T  # state @ W.T == (W @ state.T).T
         self.silenced = reference.silenced
         self.state = np.zeros((batch, circuit.size))
+        self.rng = np.random.default_rng(seed)
 
     def reset(self) -> None:
         self.state.fill(0.0)
@@ -41,7 +46,10 @@ class BatchedRateNetwork:
         if stimulus.shape != self.state.shape:
             raise ValueError(f"Expected stimulus shape {self.state.shape}, got {stimulus.shape}")
         for _ in range(substeps):
-            target = np.tanh(self.gain * (self.state @ self.weights_t) + stimulus)
+            drive = self.gain * (self.state @ self.weights_t) + stimulus
+            if self.noise:
+                drive = drive + self.rng.normal(0.0, self.noise, drive.shape)
+            target = np.tanh(drive)
             self.state += self.leak * (target - self.state)
             self.state[:, self.silenced] = 0.0
         return self.state
@@ -49,13 +57,15 @@ class BatchedRateNetwork:
 
 def batched_rollout(circuit: ConnectomeCircuit, make_event: Callable[[], object], seeds: Sequence[int],
                     encoder, actions: Sequence[str], weights: np.ndarray, thresholds: np.ndarray,
-                    observer: Callable[[list, np.ndarray, np.ndarray, np.ndarray], None] | None = None) -> list[list]:
+                    observer: Callable[[list, np.ndarray, np.ndarray, np.ndarray], None] | None = None,
+                    noise: float = 0.0, noise_seed: int | None = None) -> list[list]:
     """Run every (member, seed) pair to the end and return the finished events.
 
     weights has shape (members, n_sensory, n_inputs) and thresholds (members, n_actions - 1),
     sorted per member. encoder only supplies features() and the tonic drive.
     observer, if given, sees every step before it is taken: (observations, difference,
     env_thresholds, active), environments ordered member-major (env = member * n_seeds + seed).
+    noise and noise_seed go to BatchedRateNetwork (off by default).
     Returns events[member][seed_index].
     """
     members, seeds = len(weights), list(seeds)
@@ -63,7 +73,7 @@ def batched_rollout(circuit: ConnectomeCircuit, make_event: Callable[[], object]
     member_of = np.repeat(np.arange(members), len(seeds))
     envs = [make_event() for _ in range(batch)]
     observations = [env.reset(seeds[i % len(seeds)]) for i, env in enumerate(envs)]
-    network = BatchedRateNetwork(circuit, batch)
+    network = BatchedRateNetwork(circuit, batch, noise=noise, seed=noise_seed)
     sensory = circuit.indices("sensory")
     extensor, flexor = circuit.indices("motor_extensor"), circuit.indices("motor_flexor")
     env_weights, env_thresholds = weights[member_of], thresholds[member_of]
@@ -86,7 +96,8 @@ def batched_rollout(circuit: ConnectomeCircuit, make_event: Callable[[], object]
 
 
 def teacher_forced_differences(circuit: ConnectomeCircuit, features: np.ndarray, tonic: float,
-                               weights: np.ndarray) -> np.ndarray:
+                               weights: np.ndarray, noise: float = 0.0,
+                               noise_seed: int | None = None) -> np.ndarray:
     """extensor - flexor for every candidate along fixed observation sequences.
 
     features has shape (episodes, steps, n_inputs): recorded episodes, padded to one length.
@@ -94,7 +105,7 @@ def teacher_forced_differences(circuit: ConnectomeCircuit, features: np.ndarray,
     from a silent network, exactly like a controller reset. Returns (members, episodes, steps).
     """
     members, (episodes, steps, _) = len(weights), features.shape
-    network = BatchedRateNetwork(circuit, members * episodes)
+    network = BatchedRateNetwork(circuit, members * episodes, noise=noise, seed=noise_seed)
     sensory = circuit.indices("sensory")
     extensor, flexor = circuit.indices("motor_extensor"), circuit.indices("motor_flexor")
     stimulus = np.zeros((members * episodes, circuit.size))

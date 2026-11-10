@@ -93,6 +93,11 @@ measured again with the ordinary controller after training.
   candidate. There is no held-out course: the result says the circuit can be tuned to this
   race, not that it learned steeplechase in general.
 
+## Noise robustness
+
+The trained thresholds sit within ~1e-5 of zero. How the flies hold up under neural
+noise is measured in [noise-robustness.md](noise-robustness.md).
+
 ## Caveats
 
 This is task-specific tuning of artificial input and output mappings around a fixed,

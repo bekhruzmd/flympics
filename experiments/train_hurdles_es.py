@@ -1,4 +1,10 @@
-"""Train the Hurdles fly with an evolution strategy; connectome and dynamics stay frozen."""
+"""Train the Hurdles fly with an evolution strategy.
+
+By default the encoder weights and band thresholds learn and the connectome stays frozen.
+With --drift, the strengths of the existing MANC connections learn too, each kept within
+the drift limit of its measured value ("Connection-tuned fly"); the wiring map never
+changes. --gain sets the neuron gain, a modeling choice (default 3.0).
+"""
 from __future__ import annotations
 
 import argparse
@@ -7,14 +13,13 @@ from pathlib import Path
 
 import numpy as np
 
-import brain.dynamics
-import brain.evolution
 from brain.controller import HURDLES_POLICY, MODELS_DIR, FlyBrainController
 from brain.hurdles_io import (HURDLES_ACTIONS, HURDLES_INITIAL_THRESHOLDS, HURDLES_INPUTS,
                               HurdlesEncoder, initial_hurdles_encoder_weights)
 from controllers.hurdle_baselines import HurdleRuleController
 from events.hurdles import Hurdles
 from experiments.es_training import EventSpec, save_history, train
+from brain.reward_learning import DRIFT_LIMITS
 from experiments.run_hurdles import run, score
 
 TRAIN_SEEDS = tuple(range(12))
@@ -61,18 +66,18 @@ def evaluate(controller, seeds=HELD_OUT_SEEDS) -> dict:
     }
 
 
-def set_gain(gain: float) -> None:
-    brain.dynamics.RateNetwork.__init__.__defaults__ = (0.35, gain)
-    brain.evolution.BatchedRateNetwork.__init__.__defaults__ = (0.35, gain)
+def _gain_label(gain: float) -> str:
+    return str(int(gain)) if float(gain).is_integer() else f"{gain:g}"
 
 
-def make_spec(policy_path: Path | None = None, gain: float = 3.0) -> EventSpec:
+def make_spec(policy_path: Path | None = None, gain: float = 3.0, drift: str | None = None) -> EventSpec:
     if policy_path is None:
-        if gain == 3.0:
+        if drift is not None:
+            policy_path = MODELS_DIR / f"hurdles_connections_gain{_gain_label(gain)}_drift{drift}.json"
+        elif gain == 3.0:
             policy_path = HURDLES_POLICY
         else:
-            suffix = int(gain) if gain.is_integer() else gain
-            policy_path = MODELS_DIR / f"hurdles_es_gain{suffix}.json"
+            policy_path = MODELS_DIR / f"hurdles_es_gain{_gain_label(gain)}.json"
     encoder_path = policy_path.with_name(f"{policy_path.stem}_encoder.csv")
     return EventSpec(
         name="hurdles",
@@ -106,25 +111,23 @@ def main() -> None:
     parser.add_argument("--threshold-sigma", type=float, default=0.02)
     parser.add_argument("--lr", type=float, default=0.05, help="Adam step for encoder weights")
     parser.add_argument("--seed", type=int, default=0, help="Seeds the ES noise")
+    parser.add_argument("--drift", choices=sorted(DRIFT_LIMITS), default=None,
+                        help="Also train MANC connection strengths within this limit: "
+                             "20 = x0.8-1.2, 50 = x0.5-1.5, 2x = x0.5-2")
+    parser.add_argument("--connection-sigma", type=float, default=0.3,
+                        help="ES noise on the connection parameters (before the bounding sigmoid)")
     parser.add_argument("--policy", type=Path, default=None)
     parser.add_argument("--results-dir", type=Path, default=None)
     args = parser.parse_args()
 
-    if args.gain != 3.0:
-        set_gain(args.gain)
-
-    spec = make_spec(args.policy, gain=args.gain)
-    if args.results_dir is None:
-        if args.gain == 3.0:
-            results_dir = Path("results") / f"{spec.name}_training"
-        else:
-            suffix = int(args.gain) if args.gain.is_integer() else args.gain
-            results_dir = Path("results") / f"{spec.name}_gain{suffix}_training"
-    else:
-        results_dir = args.results_dir
+    spec = make_spec(args.policy, gain=args.gain, drift=args.drift)
+    results_dir = args.results_dir or Path("results") / f"{spec.policy.stem}_training"
+    connections = spec.policy.with_name(f"{spec.policy.stem}_connections.csv") if args.drift else None
 
     policy, history = train(spec, args.generations, args.pairs, args.weight_sigma,
-                            args.threshold_sigma, args.lr, args.seed, args.imitation_generations)
+                            args.threshold_sigma, args.lr, args.seed, args.imitation_generations,
+                            gain=args.gain, drift=DRIFT_LIMITS[args.drift] if args.drift else None,
+                            connection_sigma=args.connection_sigma, connections=connections)
     policy_data = json.loads(spec.policy.read_text())
     policy_data["gain"] = args.gain
     spec.policy.write_text(json.dumps(policy_data, indent=2, allow_nan=False) + "\n")

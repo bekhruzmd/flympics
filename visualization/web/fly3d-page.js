@@ -1094,25 +1094,43 @@ function markWatched(id, record, done) {
   watched.set(key(id), { progress: Math.max(before.progress, progressOf(record)), done: before.done || done });
 }
 
-function placeRaceLanes(step) {
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// Where a racer is drawn on the course: swimmers come back along the pool after a turn.
+function courseX(record) {
+  return eventId === 'swimming' && record.turns > 0 ? 2 * race.pool_length - record.position : record.position;
+}
+
+function placeRaceLanes(step, at = step) {
   const stride = style === 'human' ? (eventId === 'swimming' ? 1.6 : 1.25) : STRIDE;
   let time = 0;
   for (const lane of raceLanes) {
-    const record = lane.run[Math.min(step, lane.run.length - 1)];
+    const last = lane.run.length - 1;
+    const record = lane.run[Math.min(step, last)];
     time = Math.max(time, record.simulation_time);
-    if (lane.record !== record || lane.style !== style) {
-      const returning = eventId === 'swimming' && record.turns > 0;
-      const x = returning ? 2 * race.pool_length - record.position : record.position;
-      lane.holder.position.x = x * BODY_LENGTH_MM;
-      lane.holder.rotation.y = returning ? Math.PI : 0;
-      lane.fly.setStyle(style);
-      const effort = Math.min(1, record.velocity / EVENTS[eventId].topSpeed);
-      lane.fly.pose(record.position / stride, effort, 0, {
-        event: eventId, airborne: record.airborne, lift: (record.height ?? 0) * BODY_LENGTH_MM,
-      });
+    if (lane.record !== record) {
       lane.record = record;
+      if (step > 0) markWatched(lane.id, record, step >= last);
+    }
+    // Draw between this recorded step and the next one, so the flies glide instead of
+    // hopping 10-20 times a second. Only the drawing is blended; the readouts, standings
+    // and results use the recorded step itself.
+    const next = lane.run[Math.min(step + 1, last)];
+    const blend = step < last ? Math.min(1, Math.max(0, at - step)) : 0;
+    if (lane.drawnAt !== at || lane.style !== style) {
+      lane.drawnAt = at;
       lane.style = style;
-      if (step > 0) markWatched(lane.id, record, step >= lane.run.length - 1);
+      const shown = blend < 0.5 ? record : next;
+      // At a pool wall, don't blend across the turn; switch direction there instead.
+      const sameLeg = (record.turns ?? 0) === (next.turns ?? 0);
+      const x = sameLeg ? lerp(courseX(record), courseX(next), blend) : courseX(shown);
+      lane.holder.position.x = x * BODY_LENGTH_MM;
+      lane.holder.rotation.y = courseX(shown) !== shown.position ? Math.PI : 0;
+      lane.fly.setStyle(style);
+      const effort = Math.min(1, lerp(record.velocity, next.velocity, blend) / EVENTS[eventId].topSpeed);
+      lane.fly.pose(lerp(record.position, next.position, blend) / stride, effort, 0, {
+        event: eventId, airborne: shown.airborne, lift: lerp(record.height ?? 0, next.height ?? 0, blend) * BODY_LENGTH_MM,
+      });
     }
     if (eventId === 'steeplechase' && sheetStep !== step) paintSplash(lane, step);
   }
@@ -1284,7 +1302,7 @@ function frame(now) {
     $('versus-label').textContent = EVENTS.archery.controllers.find(c => c.id === rivalId)?.name ?? 'Opponent';
     if (step > 0) markWatched(selected, record, step >= records.length - 1);
   } else {
-    time = placeRaceLanes(step);
+    time = placeRaceLanes(step, index);
     record = raceLanes[0].record; position = record.position; velocity = record.velocity;
     const showPhoto = firstFinish >= 0 && step === firstFinish;
     if (photoShown !== showPhoto) {

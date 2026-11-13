@@ -20,7 +20,7 @@ from brain.connectome import ConnectomeCircuit, load_manc_front_leg_circuit
 from brain.controller import FlyBrainController
 from brain.evolution import (ConnectionDrift, ParameterLayout, batched_rollout, evolve,
                              save_connections, teacher_forced_differences)
-from brain.reward_learning import tuned_circuit
+from brain.reward_learning import DRIFT_LIMITS, tuned_circuit
 from brain.sensory import save_encoder_weights
 
 HISTORY_FIELDS = ["stage", "generation", "mean_fitness", "population_best", "population_median", "best_so_far"]
@@ -276,14 +276,26 @@ def cli(spec: EventSpec, description: str, *, generations: int, imitation_genera
     parser.add_argument("--threshold-sigma", type=float, default=threshold_sigma)
     parser.add_argument("--lr", type=float, default=lr, help="Adam step for encoder weights")
     parser.add_argument("--seed", type=int, default=0, help="Seeds the ES noise")
+    parser.add_argument("--gain", type=float, default=3.0,
+                        help="Neuron gain, a modeling choice (default 3.0; lower avoids saturation)")
+    parser.add_argument("--drift", choices=sorted(DRIFT_LIMITS), default=None,
+                        help="Also train MANC connection strengths within this limit: "
+                             "20 = x0.8-1.2, 50 = x0.5-1.5, 2x = x0.5-2")
+    parser.add_argument("--connection-sigma", type=float, default=0.3)
     parser.add_argument("--policy", type=Path, default=spec.policy)
-    parser.add_argument("--results-dir", type=Path, default=Path("results") / f"{spec.name}_training")
+    parser.add_argument("--results-dir", type=Path, default=None)
     args = parser.parse_args()
+    if (args.gain != 3.0 or args.drift) and args.policy == spec.policy:
+        parser.error("--gain or --drift needs its own --policy path, so the saved model is not overwritten")
     spec.policy = args.policy
     spec.encoder = args.policy.with_name(f"{args.policy.stem}_encoder.csv")
+    connections = args.policy.with_name(f"{args.policy.stem}_connections.csv") if args.drift else None
+    results_dir = args.results_dir or Path("results") / f"{args.policy.stem}_training"
     policy, history = train(spec, args.generations, args.pairs, args.weight_sigma,
-                            args.threshold_sigma, args.lr, args.seed, args.imitation_generations)
-    save_history(history, args.results_dir, f"{spec.name.title()}: evolution-strategy training")
+                            args.threshold_sigma, args.lr, args.seed, args.imitation_generations,
+                            gain=args.gain, drift=DRIFT_LIMITS[args.drift] if args.drift else None,
+                            connection_sigma=args.connection_sigma, connections=connections)
+    save_history(history, results_dir, f"{spec.name.title()}: evolution-strategy training")
     print(f"Trained in {policy['training_seconds']} s. Trained: {policy['trained']}")
     print(f"Untrained: {policy['untrained']}")
-    print(f"Policy: {spec.policy}; encoder: {spec.encoder}; history: {args.results_dir / 'history.csv'}")
+    print(f"Policy: {spec.policy}; encoder: {spec.encoder}; history: {results_dir / 'history.csv'}")

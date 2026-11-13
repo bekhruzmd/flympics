@@ -42,6 +42,7 @@ const EVENTS = {
     note: 'Steeplechase: 12 barriers, four with a water pit behind, and a stamina budget; jumps and splashes are part of the race physics.',
     controllers: [
       { id: 'trained', name: 'Trained fly', note: 'MANC circuit, evolution-trained' },
+      { id: 'connections', name: 'Connection-tuned fly', note: 'MANC wiring, its 2,770 strengths tuned (up to 2x); gain 1.5' },
       UNTRAINED,
       { id: 'rule', name: 'Rule', note: 'Paces itself, jumps each barrier' },
       { id: 'random', name: 'Random', note: 'Seeded random actions' },
@@ -53,6 +54,7 @@ const EVENTS = {
     controllers: [
       { id: 'eye', name: 'Sees the wind', note: 'FlyVis eye, evolution-trained' },
       { id: 'trained', name: 'Trained fly', note: 'MANC circuit, evolution-trained' },
+      { id: 'connections', name: 'Connection-tuned fly', note: 'MANC wiring, its 2,770 strengths tuned (up to 2x); gain 1.5' },
       UNTRAINED,
       { id: 'rule', name: 'Rule', note: 'Aims off the wind, releases when drawn' },
       { id: 'random', name: 'Random', note: 'Seeded random actions' },

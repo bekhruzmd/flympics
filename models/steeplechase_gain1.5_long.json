@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "event": "steeplechase",
+  "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights and band thresholds: teacher-forced imitation of the rule baseline (thresholds fitted exactly per candidate), then the event outcome; connectome and dynamics frozen",
+  "encoder": "steeplechase_gain1.5_long_encoder.csv",
+  "inputs": [
+    "barrier",
+    "water",
+    "velocity",
+    "stamina",
+    "finish"
+  ],
+  "actions": [
+    "COAST",
+    "ACCELERATE",
+    "JUMP"
+  ],
+  "thresholds": [
+    -0.06354565484745207,
+    0.236050666196343
+  ],
+  "hyperparameters": {
+    "generations": 250,
+    "pairs": 64,
+    "population": 129,
+    "weight_sigma": 0.3,
+    "threshold_sigma": 0.02,
+    "lr": 0.05,
+    "seed": 0,
+    "train_seeds": [
+      0
+    ],
+    "imitation_generations": 150,
+    "start_sigma": 0.5,
+    "connection_sigma": null
+  },
+  "train_fitness": -139.4,
+  "training_seconds": 682.1,
+  "trained": {
+    "score": 139.4,
+    "finished": true,
+    "clears": 12,
+    "hits": 0,
+    "splashes": 4,
+    "stamina_left": 0.694
+  },
+  "untrained": {
+    "score": 833.75,
+    "finished": false,
+    "clears": 0,
+    "hits": 0,
+    "splashes": 0,
+    "stamina_left": 1.0
+  },
+  "gain": 1.5
+}

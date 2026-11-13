@@ -16,7 +16,7 @@ from .archery_io import ARCHERY_INITIAL_THRESHOLDS, ARCHERY_INPUTS, ArcheryDecod
 from .hurdles_io import (HURDLES_INITIAL_THRESHOLDS, HURDLES_INPUTS, HurdlesDecoder,
                          HurdlesEncoder)
 from .motor import MotorDecoder
-from .swimming_io import SWIMMING_INPUTS, SwimmingDecoder, SwimmingEncoder
+from .swimming_io import SWIMMING_INPUTS, SwimmingBandDecoder, SwimmingDecoder, SwimmingEncoder
 from .sensory import LearnedSensoryEncoder, SensoryEncoder, load_encoder_weights
 from .speed_eye import SPRINT_EYE_INPUTS, SprintEyeDecoder, SprintEyeEncoder
 from .steeplechase_io import (STEEPLECHASE_INITIAL_THRESHOLDS, STEEPLECHASE_INPUTS,
@@ -48,6 +48,7 @@ BAND_EVENTS = {
     "archery_eye": (ARCHERY_EYE_INPUTS, ArcheryEyeEncoder, ArcheryDecoder),
     "steeplechase": (STEEPLECHASE_INPUTS, SteeplechaseEncoder, SteeplechaseDecoder),
     "pacing": (PACING_INPUTS, PacingEncoder, PacingDecoder),
+    "swimming": (SWIMMING_INPUTS, SwimmingEncoder, SwimmingBandDecoder),
     "hurdles": (HURDLES_INPUTS, HurdlesEncoder, HurdlesDecoder),
 }
 

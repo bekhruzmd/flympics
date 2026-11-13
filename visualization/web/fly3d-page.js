@@ -21,6 +21,7 @@ const EVENTS = {
     controllers: [
       UNTRAINED,
       { id: 'trained', name: 'Trained fly', note: 'MANC circuit, evolution-trained; never jumps' },
+      { id: 'connections', name: 'Connection-tuned fly', note: 'MANC wiring, its 2,770 strengths tuned (up to 2x); gain 1.5' },
       { id: 'rule', name: 'Rule', note: 'Brakes to a safe speed, then jumps' },
       { id: 'nocoast', name: 'Rule, no brakes', note: 'Jumps too fast and loses speed' },
       { id: 'random', name: 'Random', note: 'Seeded random jumps' },

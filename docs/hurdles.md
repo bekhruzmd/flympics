@@ -261,3 +261,44 @@ Stage 1 imitates the rule baseline with teacher-forcing on recorded states, and 
 | `fly` (untrained, gain 3) | 58.35 s | 11 | 0 | 56.63 s | 9.7 | 0.0 |
 | `random` | 62.45 s | 11 | 9 | 60.75 s | 9.7 | 9.7 |
 
+
+## Connection tuning (gain 1.5)
+
+Here training also changes the strength of every existing MANC connection (2,770 of them),
+each as a multiplier on its measured strength kept inside a drift limit. Which neurons
+connect, the sign of every connection and the MANC data files never change; the trained
+multipliers are saved next to each policy as `*_connections.csv`. The neuron gain is 1.5,
+a modeling choice taken from the saturation report (`docs/saturation.md`): at gain 3 the
+circuit is saturated and no connection change can reach the motor readout.
+
+Same budget for every run: 150 imitation generations, then 250 outcome generations with
+64 antithetic pairs (129 candidates per generation), ES seed 0.
+
+```sh
+python -m experiments.train_hurdles_es --gain 1.5 --pairs 64 --generations 250 --policy models/hurdles_es_gain1.5_long.json
+python -m experiments.train_hurdles_es --gain 1.5 --pairs 64 --generations 250 --drift 50 --policy models/hurdles_connections_gain1.5_drift50_long.json
+python -m experiments.train_hurdles_es --gain 1.5 --pairs 64 --generations 250 --drift 2x --policy models/hurdles_connections_gain1.5_drift2x_long.json
+```
+
+Held-out seeds 1000–1049 (50 courses never seen in training):
+
+| Fly | Mean time | Jumps per race | Hurdles hit per race | Connections changed |
+|---|---:|---:|---:|---|
+| Rule baseline | 47.67 s | 9.7 | 0.0 | – |
+| Gain 3, encoder only (`hurdles_es.json`) | 56.63 s | 0.0 | 9.7 | – |
+| Gain 1.5, encoder only | 52.92 s | 10.3 | 0.84 | none |
+| Gain 1.5, connections within x0.5–1.5 | 52.51 s | 10.3 | 0.52 | mean 14.9%, max 45.7% |
+| Gain 1.5, connections within x0.5–2 | **51.89 s** | 8.6 | 2.16 | mean 19.8%, max 83.6% |
+
+At gain 1.5 the fly learns to jump the hurdles it sees coming: about 10 jumps per race
+instead of none at gain 3. Tuning the connections on top of the encoder made it faster on
+the same 50 courses: x0.5–1.5 by 0.40 s (95% interval ±0.27 s; faster on 66% of courses,
+tied on 30%) and x0.5–2 by 1.03 s (±0.29 s; faster on 94%). No connection reached its
+limit. The rule baseline is still about 4 s faster.
+
+Limits: one training run per setting (ES seed 0), so how much of the gap comes from the
+training's own randomness is not measured; a second seed per setting would settle it. The
+gain is a modeling choice, and the tuned strengths are a model fitted to a game, not a claim
+about how a real fly's synapses change.
+
+The viewer races the x0.5–2 fly as "Connection-tuned fly".

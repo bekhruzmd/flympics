@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "event": "hurdles",
+  "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights, band thresholds and MANC connection strengths (within the drift limit): teacher-forced imitation of the rule baseline (thresholds fitted exactly per candidate), then the event outcome; wiring map and dynamics frozen",
+  "encoder": "hurdles_connections_gain1.5_drift2x_long_encoder.csv",
+  "inputs": [
+    "next_hurdle",
+    "second_hurdle",
+    "velocity"
+  ],
+  "actions": [
+    "COAST",
+    "ACCELERATE",
+    "JUMP"
+  ],
+  "thresholds": [
+    -0.22062609794878907,
+    -0.0043182708228398144
+  ],
+  "hyperparameters": {
+    "generations": 250,
+    "pairs": 64,
+    "population": 129,
+    "weight_sigma": 0.3,
+    "threshold_sigma": 0.02,
+    "lr": 0.05,
+    "seed": 0,
+    "train_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "imitation_generations": 150,
+    "start_sigma": 0.5,
+    "connection_sigma": 0.3
+  },
+  "train_fitness": -51.979166666666664,
+  "training_seconds": 8165.7,
+  "trained": {
+    "benchmark_score": 51.8,
+    "benchmark_finished": true,
+    "benchmark_time": 51.8,
+    "benchmark_hits": 4,
+    "benchmark_jumps": 8,
+    "benchmark_coasts": 0,
+    "held_out_seeds": "1000-1049",
+    "held_out_mean_score": 51.89,
+    "held_out_min_score": 50.2,
+    "held_out_max_score": 53.85,
+    "held_out_finished_rate": 1.0,
+    "held_out_mean_hits": 2.16,
+    "held_out_mean_jumps": 8.62,
+    "held_out_mean_coasts": 0.0
+  },
+  "untrained": {
+    "benchmark_score": 286.875,
+    "benchmark_finished": false,
+    "benchmark_time": 90.0,
+    "benchmark_hits": 0,
+    "benchmark_jumps": 0,
+    "benchmark_coasts": 1792,
+    "held_out_seeds": "1000-1049",
+    "held_out_mean_score": 286.875,
+    "held_out_min_score": 286.875,
+    "held_out_max_score": 286.875,
+    "held_out_finished_rate": 0.0,
+    "held_out_mean_hits": 0.0,
+    "held_out_mean_jumps": 0.0,
+    "held_out_mean_coasts": 1792.0
+  },
+  "gain": 1.5,
+  "connections": {
+    "file": "hurdles_connections_gain1.5_drift2x_long_connections.csv",
+    "low": 0.5,
+    "high": 2.0,
+    "count": 2770,
+    "mean_abs_change": 0.1984,
+    "max_abs_change": 0.8356,
+    "share_changed_over_10pct": 0.7188,
+    "share_at_a_limit": 0.0
+  }
+}

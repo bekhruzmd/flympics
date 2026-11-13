@@ -18,7 +18,9 @@ import numpy as np
 
 from brain.connectome import ConnectomeCircuit, load_manc_front_leg_circuit
 from brain.controller import FlyBrainController
-from brain.evolution import ParameterLayout, batched_rollout, evolve, teacher_forced_differences
+from brain.evolution import (ConnectionDrift, ParameterLayout, batched_rollout, evolve,
+                             save_connections, teacher_forced_differences)
+from brain.reward_learning import tuned_circuit
 from brain.sensory import save_encoder_weights
 
 HISTORY_FIELDS = ["stage", "generation", "mean_fitness", "population_best", "population_median", "best_so_far"]
@@ -111,9 +113,17 @@ def fit_band_thresholds(difference: np.ndarray, labels: np.ndarray, weight: np.n
 
 def train(spec: EventSpec, generations: int, pairs: int, weight_sigma: float, threshold_sigma: float,
           lr: float, seed: int, imitation_generations: int = 0, start_sigma: float = 0.5,
-          log=_log) -> tuple[dict, list[dict]]:
+          log=_log, gain: float = 3.0, drift: tuple[float, float] | None = None,
+          connection_sigma: float = 0.3, connections: Path | None = None) -> tuple[dict, list[dict]]:
+    """Encoder weights and band thresholds always learn. With drift=(low, high), the strength
+    of every existing MANC connection also learns, as a multiplier kept inside [low, high];
+    the connections are then saved to `connections`. gain is the neuron gain (a modeling
+    choice, default 3.0)."""
     circuit = load_manc_front_leg_circuit()
     frozen = fingerprint(circuit)
+    drift_layout = ConnectionDrift(circuit, *drift) if drift is not None else None
+    if drift_layout is not None and connections is None:
+        raise ValueError("Pass a path to save the trained connections to.")
     n_sensory = len(circuit.indices("sensory"))
     layout = ParameterLayout(n_sensory, len(spec.inputs), len(spec.actions) - 1)
     initial_weights = spec.initial_weights(circuit)
@@ -121,9 +131,10 @@ def train(spec: EventSpec, generations: int, pairs: int, weight_sigma: float, th
     feature_encoder = spec.encoder_class(circuit, initial_weights)
 
     def fitness(candidates: np.ndarray) -> np.ndarray:
-        weights, thresholds = layout.unpack(candidates)
+        weights, thresholds = layout.unpack(candidates[:, :layout.size])
+        matrices = drift_layout.matrices(candidates[:, layout.size:]) if drift_layout is not None else None
         events = batched_rollout(circuit, spec.make_event, spec.train_seeds, feature_encoder,
-                                 spec.actions, weights, thresholds)
+                                 spec.actions, weights, thresholds, gain=gain, member_weights_t=matrices)
         return np.array([spec.fitness(member) for member in events])
 
     n_weights = n_sensory * len(spec.inputs)
@@ -137,7 +148,7 @@ def train(spec: EventSpec, generations: int, pairs: int, weight_sigma: float, th
 
     def imitation_fit(flat_weights: np.ndarray) -> list[tuple[float, tuple[float, float]]]:
         weights = flat_weights.reshape(len(flat_weights), n_sensory, len(spec.inputs))
-        differences = teacher_forced_differences(circuit, features, feature_encoder.tonic, weights)
+        differences = teacher_forced_differences(circuit, features, feature_encoder.tonic, weights, gain=gain)
         return [fit_band_thresholds(differences[m][mask], labels[mask], class_weight[mask])
                 for m in range(len(weights))]
 
@@ -163,6 +174,13 @@ def train(spec: EventSpec, generations: int, pairs: int, weight_sigma: float, th
         _, thresholds = imitation_fit(warm.best_theta[None])[0]
         theta0 = layout.pack(warm.best_theta.reshape(n_sensory, len(spec.inputs)), thresholds)
         log("Stage 2: optimise the event outcome")
+    if drift_layout is not None:
+        # Connections join in stage 2, starting from the real fly's strengths.
+        theta0 = np.concatenate([theta0, np.full(drift_layout.size, drift_layout.z0)])
+        sigma = np.concatenate([sigma, np.full(drift_layout.size, connection_sigma)])
+        step = lr * sigma / weight_sigma
+        log(f"Training {drift_layout.size} MANC connection strengths too, within "
+            f"x{drift_layout.low:g}-x{drift_layout.high:g} of their measured values")
     result = evolve(theta0, fitness, generations=generations, pairs=pairs, sigma=sigma,
                     lr=step, seed=seed + 1, log=log)
     history += [{"stage": "outcome", **row} for row in result.history]
@@ -170,18 +188,39 @@ def train(spec: EventSpec, generations: int, pairs: int, weight_sigma: float, th
     if fingerprint(circuit) != frozen:
         raise RuntimeError("The frozen connectome changed during training.")
 
-    weights, _ = layout.unpack(result.best_theta)
-    thresholds = layout.decoder_thresholds(result.best_theta)
-    trained = FlyBrainController.band_event(spec.name, weights, thresholds, circuit)
-    untrained = FlyBrainController.band_event(spec.name, initial_weights, list(spec.initial_thresholds), circuit)
+    best = result.best_theta[:layout.size]
+    weights, _ = layout.unpack(best)
+    thresholds = layout.decoder_thresholds(best)
+    trained_circuit = circuit
+    connection_report = None
+    if drift_layout is not None:
+        multipliers = drift_layout.multipliers(result.best_theta[layout.size:])
+        trained_circuit = tuned_circuit(circuit, multipliers)
+        save_connections(connections, circuit, multipliers)
+        moved = np.abs(multipliers - 1.0)
+        connection_report = {
+            "file": connections.name, "low": drift_layout.low, "high": drift_layout.high,
+            "count": int(drift_layout.size),
+            "mean_abs_change": round(float(moved.mean()), 4),
+            "max_abs_change": round(float(moved.max()), 4),
+            "share_changed_over_10pct": round(float(np.mean(moved > 0.10)), 4),
+            "share_at_a_limit": round(float(np.mean((multipliers < drift_layout.low + 1e-3)
+                                                    | (multipliers > drift_layout.high - 1e-3))), 4),
+        }
+    trained = FlyBrainController.band_event(spec.name, weights, thresholds, trained_circuit, gain=gain)
+    untrained = FlyBrainController.band_event(spec.name, initial_weights, list(spec.initial_thresholds),
+                                              circuit, gain=gain)
     save_encoder_weights(spec.encoder, circuit, weights, spec.inputs)
+    what = "encoder weights, band thresholds and MANC connection strengths (within the drift limit)" \
+        if drift_layout is not None else "encoder weights and band thresholds"
+    frozen_part = "wiring map and dynamics frozen" if drift_layout is not None else "connectome and dynamics frozen"
     policy = {
         "version": 1,
         "event": spec.name,
-        "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights "
-                  "and band thresholds: teacher-forced imitation of the rule baseline (thresholds fitted "
+        "method": f"OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on {what}: "
+                  "teacher-forced imitation of the rule baseline (thresholds fitted "
                   "exactly per candidate), then the event outcome; "
-                  "connectome and dynamics frozen",
+                  f"{frozen_part}",
         "encoder": spec.encoder.name,
         "inputs": list(spec.inputs),
         "actions": list(spec.actions),
@@ -189,12 +228,17 @@ def train(spec: EventSpec, generations: int, pairs: int, weight_sigma: float, th
         "hyperparameters": {"generations": generations, "pairs": pairs, "population": 2 * pairs + 1,
                             "weight_sigma": weight_sigma, "threshold_sigma": threshold_sigma,
                             "lr": lr, "seed": seed, "train_seeds": list(spec.train_seeds),
-                            "imitation_generations": imitation_generations, "start_sigma": start_sigma},
+                            "imitation_generations": imitation_generations, "start_sigma": start_sigma,
+                            "connection_sigma": connection_sigma if drift_layout is not None else None},
         "train_fitness": result.best_fitness,
         "training_seconds": round(elapsed, 1),
         "trained": spec.evaluate(trained),
         "untrained": spec.evaluate(untrained),
     }
+    if gain != 3.0:
+        policy["gain"] = gain
+    if connection_report is not None:
+        policy["connections"] = connection_report
     spec.policy.parent.mkdir(parents=True, exist_ok=True)
     spec.policy.write_text(json.dumps(policy, indent=2, allow_nan=False) + "\n")
     return policy, history

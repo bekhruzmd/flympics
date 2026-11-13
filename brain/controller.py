@@ -161,6 +161,12 @@ class FlyBrainController(Controller):
         if policy.get("version") != 1 or policy.get("event") not in BAND_EVENTS:
             raise ValueError(f"{path}: expected a version 1 band policy for {sorted(BAND_EVENTS)}.")
         gain = float(policy["gain"]) if "gain" in policy else None
+        if "connections" in policy:
+            # A connection-tuned fly: same MANC wiring, strengths scaled by its trained multipliers.
+            from .evolution import load_connections
+            from .reward_learning import tuned_circuit
+            circuit = circuit if circuit is not None else load_manc_front_leg_circuit()
+            circuit = tuned_circuit(circuit, load_connections(path.parent / policy["connections"]["file"], circuit))
         return cls.band_event(policy["event"], path.parent / policy["encoder"], policy["thresholds"], circuit,
                               noise, gain=gain)
 

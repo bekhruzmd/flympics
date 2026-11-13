@@ -15,6 +15,8 @@ Final results are always re-measured with the ordinary FlyBrainController.
 """
 from __future__ import annotations
 
+import csv
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Callable, Sequence
 
@@ -31,10 +33,17 @@ class BatchedRateNetwork:
     """
 
     def __init__(self, circuit: ConnectomeCircuit, batch: int, leak: float = 0.35, gain: float = 3.0,
-                 noise: float = 0.0, seed: int | None = None):
+                 noise: float = 0.0, seed: int | None = None, member_weights_t: np.ndarray | None = None):
+        """member_weights_t, if given, has shape (members, n, n): each member's own transposed
+        connection matrix, shared by batch // members consecutive rows (member-major)."""
         reference = RateNetwork(circuit, leak=leak, gain=gain, noise=noise)
         self.leak, self.gain, self.noise = reference.leak, reference.gain, reference.noise
         self.weights_t = circuit.weights.toarray().T  # state @ W.T == (W @ state.T).T
+        self.member_weights_t = member_weights_t
+        if member_weights_t is not None:
+            n = circuit.size
+            if member_weights_t.ndim != 3 or member_weights_t.shape[1:] != (n, n) or batch % len(member_weights_t):
+                raise ValueError(f"member_weights_t must be (members, {n}, {n}) with batch a multiple of members.")
         self.silenced = reference.silenced
         self.state = np.zeros((batch, circuit.size))
         self.rng = np.random.default_rng(seed)
@@ -46,7 +55,13 @@ class BatchedRateNetwork:
         if stimulus.shape != self.state.shape:
             raise ValueError(f"Expected stimulus shape {self.state.shape}, got {stimulus.shape}")
         for _ in range(substeps):
-            drive = self.gain * (self.state @ self.weights_t) + stimulus
+            if self.member_weights_t is None:
+                recurrent = self.state @ self.weights_t
+            else:
+                members = len(self.member_weights_t)
+                grouped = self.state.reshape(members, -1, self.state.shape[1])
+                recurrent = np.matmul(grouped, self.member_weights_t).reshape(self.state.shape)
+            drive = self.gain * recurrent + stimulus
             if self.noise:
                 drive = drive + self.rng.normal(0.0, self.noise, drive.shape)
             target = np.tanh(drive)
@@ -58,14 +73,17 @@ class BatchedRateNetwork:
 def batched_rollout(circuit: ConnectomeCircuit, make_event: Callable[[], object], seeds: Sequence[int],
                     encoder, actions: Sequence[str], weights: np.ndarray, thresholds: np.ndarray,
                     observer: Callable[[list, np.ndarray, np.ndarray, np.ndarray], None] | None = None,
-                    noise: float = 0.0, noise_seed: int | None = None) -> list[list]:
+                    noise: float = 0.0, noise_seed: int | None = None, gain: float = 3.0,
+                    member_weights_t: np.ndarray | None = None) -> list[list]:
     """Run every (member, seed) pair to the end and return the finished events.
 
     weights has shape (members, n_sensory, n_inputs) and thresholds (members, n_actions - 1),
     sorted per member. encoder only supplies features() and the tonic drive.
     observer, if given, sees every step before it is taken: (observations, difference,
     env_thresholds, active), environments ordered member-major (env = member * n_seeds + seed).
-    noise and noise_seed go to BatchedRateNetwork (off by default).
+    noise and noise_seed go to BatchedRateNetwork (off by default). gain sets the neuron gain
+    (a modeling choice). member_weights_t, if given, gives each member its own connection
+    strengths (see connection_matrices).
     Returns events[member][seed_index].
     """
     members, seeds = len(weights), list(seeds)
@@ -73,7 +91,8 @@ def batched_rollout(circuit: ConnectomeCircuit, make_event: Callable[[], object]
     member_of = np.repeat(np.arange(members), len(seeds))
     envs = [make_event() for _ in range(batch)]
     observations = [env.reset(seeds[i % len(seeds)]) for i, env in enumerate(envs)]
-    network = BatchedRateNetwork(circuit, batch, noise=noise, seed=noise_seed)
+    network = BatchedRateNetwork(circuit, batch, gain=gain, noise=noise, seed=noise_seed,
+                                 member_weights_t=member_weights_t)
     sensory = circuit.indices("sensory")
     extensor, flexor = circuit.indices("motor_extensor"), circuit.indices("motor_flexor")
     env_weights, env_thresholds = weights[member_of], thresholds[member_of]
@@ -97,7 +116,7 @@ def batched_rollout(circuit: ConnectomeCircuit, make_event: Callable[[], object]
 
 def teacher_forced_differences(circuit: ConnectomeCircuit, features: np.ndarray, tonic: float,
                                weights: np.ndarray, noise: float = 0.0,
-                               noise_seed: int | None = None) -> np.ndarray:
+                               noise_seed: int | None = None, gain: float = 3.0) -> np.ndarray:
     """extensor - flexor for every candidate along fixed observation sequences.
 
     features has shape (episodes, steps, n_inputs): recorded episodes, padded to one length.
@@ -105,7 +124,7 @@ def teacher_forced_differences(circuit: ConnectomeCircuit, features: np.ndarray,
     from a silent network, exactly like a controller reset. Returns (members, episodes, steps).
     """
     members, (episodes, steps, _) = len(weights), features.shape
-    network = BatchedRateNetwork(circuit, members * episodes, noise=noise, seed=noise_seed)
+    network = BatchedRateNetwork(circuit, members * episodes, gain=gain, noise=noise, seed=noise_seed)
     sensory = circuit.indices("sensory")
     extensor, flexor = circuit.indices("motor_extensor"), circuit.indices("motor_flexor")
     stimulus = np.zeros((members * episodes, circuit.size))
@@ -116,6 +135,68 @@ def teacher_forced_differences(circuit: ConnectomeCircuit, features: np.ndarray,
         activity = network.step(stimulus)
         out[:, :, t] = (activity[:, extensor].mean(axis=1) - activity[:, flexor].mean(axis=1)).reshape(members, episodes)
     return out
+
+
+class ConnectionDrift:
+    """Trainable strengths for the existing MANC connections, kept inside a drift limit.
+
+    Each connection gets a multiplier on its measured strength,
+    low + (high - low) * sigmoid(z), so it can never leave [low, high], switch off or flip
+    sign. z starts where the multiplier is exactly 1 (the real fly). Which neurons connect
+    never changes: only the strengths of connections that already exist in MANC.
+    """
+
+    def __init__(self, circuit: ConnectomeCircuit, low: float, high: float):
+        if not 0 < low < 1 < high:
+            raise ValueError("Drift limits must satisfy 0 < low < 1 < high.")
+        self.low, self.high = float(low), float(high)
+        w = circuit.weights.tocsr()
+        self.size = w.nnz
+        self.data = w.data.astype(float)
+        self.post = np.repeat(np.arange(w.shape[0]), np.diff(w.indptr))  # CSR rows are [post, pre]
+        self.pre = w.indices.copy()
+        self.n = w.shape[0]
+        self.z0 = float(np.log((1 - self.low) / (self.high - 1)))  # sigmoid(z0) puts the multiplier at 1
+
+    def multipliers(self, z: np.ndarray) -> np.ndarray:
+        z = np.clip(np.asarray(z, float), -50.0, 50.0)  # far past either limit; avoids exp overflow
+        return self.low + (self.high - self.low) / (1.0 + np.exp(-z))
+
+    def matrices(self, z: np.ndarray) -> np.ndarray:
+        """(members, n, n) transposed connection matrices for BatchedRateNetwork."""
+        multipliers = self.multipliers(np.atleast_2d(z))
+        out = np.zeros((len(multipliers), self.n, self.n))
+        out[:, self.pre, self.post] = self.data * multipliers
+        return out
+
+
+def save_connections(path: Path, circuit: ConnectomeCircuit, multipliers: np.ndarray) -> None:
+    """One row per existing MANC connection: pre and post neuron ids, measured strength,
+    trained multiplier. The MANC data files themselves are never written."""
+    w = circuit.weights.tocsr()
+    post = np.repeat(np.arange(w.shape[0]), np.diff(w.indptr))
+    ids = circuit.neuron_ids
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(["pre", "post", "manc_weight", "multiplier"])
+        for k in range(w.nnz):
+            writer.writerow([ids[w.indices[k]], ids[post[k]], f"{w.data[k]:.10g}", f"{multipliers[k]:.10g}"])
+
+
+def load_connections(path: Path, circuit: ConnectomeCircuit) -> np.ndarray:
+    """Multipliers from save_connections, checked against the circuit's own edge list."""
+    w = circuit.weights.tocsr()
+    post = np.repeat(np.arange(w.shape[0]), np.diff(w.indptr))
+    ids = circuit.neuron_ids
+    with Path(path).open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if len(rows) != w.nnz:
+        raise ValueError(f"{path}: expected {w.nnz} connections, got {len(rows)}.")
+    for k, row in enumerate(rows):
+        if (str(row["pre"]), str(row["post"])) != (str(ids[w.indices[k]]), str(ids[post[k]])):
+            raise ValueError(f"{path}: row {k} is not the circuit's connection {ids[w.indices[k]]}->{ids[post[k]]}.")
+    return np.array([float(row["multiplier"]) for row in rows])
 
 
 @dataclass

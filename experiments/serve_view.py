@@ -20,6 +20,8 @@ import numpy as np
 
 # Hurdles controllers: 'trained' is "Trained fly (evolution-trained)"
 HURDLES_CONTROLLERS = ('trained', 'fly', 'rule', 'nocoast', 'random')
+# The Hurdles fly whose MANC connection strengths were tuned too (gain 1.5, up to 2x drift).
+HURDLES_CONNECTIONS_POLICY = MODELS_DIR / 'hurdles_connections_gain1.5_drift2x_long.json'
 SWIMMING_CONTROLLERS = ('fly', 'rule', 'full_strokes', 'random')
 ARCHERY_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
 STEEPLECHASE_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
@@ -83,8 +85,11 @@ def viewer_payload(seed: int) -> dict:
                 'distance': Hurdles().distance,
                 'dt': Hurdles().dt,
                 'hurdles': list(run_hurdles.course('benchmark', seed)),
-                'runs': {name: event_run(run_hurdles, name, seed, 'benchmark')
-                         for name in HURDLES_CONTROLLERS},
+                'runs': {
+                    **{name: event_run(run_hurdles, name, seed, 'benchmark') for name in HURDLES_CONTROLLERS},
+                    'connections': event_run(run_hurdles, 'connections', seed, 'benchmark',
+                                             controller=FlyBrainController.from_policy(HURDLES_CONNECTIONS_POLICY)),
+                },
             },
             'swimming': {
                 'distance': Swimming().distance,

@@ -66,6 +66,8 @@ def demonstrations(spec: EventSpec, encoder, epsilon: float = 0.3, repeats: int 
         for train_seed in spec.train_seeds:
             event = spec.make_event()
             observation = event.reset(train_seed)
+            if hasattr(spec.teacher, "reset"):  # a teacher with memory starts each race fresh
+                spec.teacher.reset(train_seed)
             rows = []
             while not event.is_finished():
                 band = spec.teacher(dict(observation))
@@ -82,6 +84,23 @@ def demonstrations(spec: EventSpec, encoder, epsilon: float = 0.3, repeats: int 
         labels[e, :len(rows)] = [b for _, b in rows]
         mask[e, :len(rows)] = True
     return features, labels, mask
+
+
+def fit_one_threshold(difference: np.ndarray, labels: np.ndarray, weight: np.ndarray) -> tuple[float, tuple[float]]:
+    """Best single threshold for a 2-band decoder, by weighted agreement with labels 0 and 1.
+
+    Differences at or below the threshold go to band 0. Tries every cut between sorted
+    differences. Returns (agreement, (threshold,)).
+    """
+    order = np.argsort(difference, kind="stable")
+    d, labels, weight = difference[order], labels[order], weight[order]
+    zeros_below = np.concatenate([[0.0], np.cumsum(weight * (labels == 0))])
+    ones_above = np.concatenate([[0.0], np.cumsum(weight * (labels == 1))])
+    agreement = zeros_below + (ones_above[-1] - ones_above)
+    cut = int(np.argmax(agreement))
+    padded = np.concatenate([[d[0] - 1e-3], d, [d[-1] + 1e-3]])
+    threshold = float(np.clip((padded[cut] + padded[cut + 1]) / 2, -1.0, 1.0))
+    return float(agreement[cut]), (threshold,)
 
 
 def fit_band_thresholds(difference: np.ndarray, labels: np.ndarray, weight: np.ndarray,
@@ -149,7 +168,8 @@ def train(spec: EventSpec, generations: int, pairs: int, weight_sigma: float, th
     def imitation_fit(flat_weights: np.ndarray) -> list[tuple[float, tuple[float, float]]]:
         weights = flat_weights.reshape(len(flat_weights), n_sensory, len(spec.inputs))
         differences = teacher_forced_differences(circuit, features, feature_encoder.tonic, weights, gain=gain)
-        return [fit_band_thresholds(differences[m][mask], labels[mask], class_weight[mask])
+        fit = fit_one_threshold if len(spec.actions) == 2 else fit_band_thresholds
+        return [fit(differences[m][mask], labels[mask], class_weight[mask])
                 for m in range(len(weights))]
 
     def imitation(flat_weights: np.ndarray) -> np.ndarray:

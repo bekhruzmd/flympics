@@ -90,3 +90,12 @@ def test_connections_file_must_match_the_circuit(tmp_path):
     path.write_text("\n".join(lines[:1] + [lines[2], lines[1]] + lines[3:]) + "\n")
     with pytest.raises(ValueError):
         load_connections(path, CIRCUIT)
+
+
+def test_one_threshold_fit_maximises_agreement():
+    from experiments.es_training import fit_one_threshold
+    differences = np.array([-0.3, -0.1, 0.0, 0.2, 0.4])
+    labels = np.array([0, 0, 0, 1, 1])
+    agreement, (threshold,) = fit_one_threshold(differences, labels, np.ones(5))
+    assert agreement == 5.0
+    assert 0.0 < threshold < 0.2  # everything at or below it is band 0, above it band 1

@@ -157,3 +157,27 @@ test the 2.2 s gap on.
 Limits, as for Hurdles: one training run per setting, so the training's own randomness is
 not measured, and the tuned strengths are a model fitted to a game, not a claim about real
 synapses. The viewer races both as "Connection-tuned fly".
+
+## Connection tuning at gain 1.5 (400 m and Swimming)
+
+Same method and budget (250 generations, 64 antithetic pairs, ES seed 0), but with no
+imitation stage: the stage fits three bands, and these events have two actions. Both races
+are fixed, so there are no held-out courses.
+
+```sh
+python -m experiments.train_pacing_es --gain 1.5 --pairs 64 --generations 250 --threshold-sigma 0.02 --policy models/pacing_gain1.5_long.json
+python -m experiments.train_pacing_es --gain 1.5 --pairs 64 --generations 250 --threshold-sigma 0.02 --drift 2x --policy models/pacing_connections_gain1.5_drift2x_long.json
+python -m experiments.train_swimming_es --gain 1.5 --pairs 64 --generations 250 --threshold-sigma 0.02 --policy models/swimming_gain1.5_long.json
+python -m experiments.train_swimming_es --gain 1.5 --pairs 64 --generations 250 --threshold-sigma 0.02 --drift 2x --policy models/swimming_connections_gain1.5_drift2x_long.json
+```
+
+**400 m** (seed 7; seconds, lower is better): rule 123.0, random 129.7, connections within
+x0.5–2 **183.1**, encoder only 198.1, earlier trained fly 198.1. Encoder-only training found
+nothing better than its start; tuning the connections (mean change 8.9%, max 38.6%) cut
+15 s. It still trails both baselines. The viewer races it as "Connection-tuned fly".
+
+**Swimming** (100 m, 120 s limit): neither trained fly finishes. Encoder only learned a
+rhythm (15 strokes, 38.5 m, from 1 stroke and 17.3 m untrained); with the connections tuned
+it did worse (0 strokes, 21.2 m). Without an imitation stage the search starts from a fly
+that stalls after one stroke and gets little signal. Not shown in the viewer. A two-action
+imitation stage is the obvious next step.

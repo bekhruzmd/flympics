@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "event": "swimming",
+  "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights and band thresholds: teacher-forced imitation of the rule baseline (thresholds fitted exactly per candidate), then the event outcome; connectome and dynamics frozen",
+  "encoder": "swimming_gain1.5_long_encoder.csv",
+  "inputs": [
+    "wall",
+    "velocity",
+    "stroke_phase"
+  ],
+  "actions": [
+    "RECOVER",
+    "PULL"
+  ],
+  "thresholds": [
+    0.005347153981232131
+  ],
+  "hyperparameters": {
+    "generations": 250,
+    "pairs": 64,
+    "population": 129,
+    "weight_sigma": 0.3,
+    "threshold_sigma": 0.02,
+    "lr": 0.05,
+    "seed": 0,
+    "train_seeds": [
+      0
+    ],
+    "imitation_generations": 0,
+    "start_sigma": 0.5,
+    "connection_sigma": null
+  },
+  "train_fitness": -181.52728353194618,
+  "training_seconds": 464.3,
+  "trained": {
+    "score": 181.527,
+    "finished": false,
+    "time": 120.0,
+    "position": 38.47,
+    "strokes": 15,
+    "turns": 0
+  },
+  "untrained": {
+    "score": 202.681,
+    "finished": false,
+    "time": 120.0,
+    "position": 17.32,
+    "strokes": 1,
+    "turns": 0
+  },
+  "gain": 1.5
+}

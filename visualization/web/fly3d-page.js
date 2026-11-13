@@ -65,6 +65,7 @@ const EVENTS = {
     note: '400 m: every lane starts with a modeled energy budget of 100 units. The energy bars replay the recorded budget.',
     controllers: [
       { id: 'trained', name: 'Trained fly', note: 'MANC circuit, fitted threshold' },
+      { id: 'connections', name: 'Connection-tuned fly', note: 'MANC wiring, its 2,770 strengths tuned (up to 2x); gain 1.5' },
       UNTRAINED,
       { id: 'rule', name: 'Rule', note: 'Paced cruise at 3.3 BL/s' },
       { id: 'random', name: 'Random', note: 'Seeded random actions' },

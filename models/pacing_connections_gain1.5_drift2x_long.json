@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "event": "pacing",
+  "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights, band thresholds and MANC connection strengths (within the drift limit): teacher-forced imitation of the rule baseline (thresholds fitted exactly per candidate), then the event outcome; wiring map and dynamics frozen",
+  "encoder": "pacing_connections_gain1.5_drift2x_long_encoder.csv",
+  "inputs": [
+    "distance",
+    "velocity",
+    "energy"
+  ],
+  "actions": [
+    "COAST",
+    "ACCELERATE"
+  ],
+  "thresholds": [
+    0.021814631795544766
+  ],
+  "hyperparameters": {
+    "generations": 250,
+    "pairs": 64,
+    "population": 129,
+    "weight_sigma": 0.3,
+    "threshold_sigma": 0.02,
+    "lr": 0.05,
+    "seed": 0,
+    "train_seeds": [
+      0
+    ],
+    "imitation_generations": 0,
+    "start_sigma": 0.5,
+    "connection_sigma": 0.3
+  },
+  "train_fitness": -183.1,
+  "training_seconds": 883.6,
+  "trained": {
+    "time_or_score": 183.1,
+    "finished": true
+  },
+  "untrained": {
+    "time_or_score": 198.1,
+    "finished": true
+  },
+  "gain": 1.5,
+  "connections": {
+    "file": "pacing_connections_gain1.5_drift2x_long_connections.csv",
+    "low": 0.5,
+    "high": 2.0,
+    "count": 2770,
+    "mean_abs_change": 0.0888,
+    "max_abs_change": 0.3862,
+    "share_changed_over_10pct": 0.3755,
+    "share_at_a_limit": 0.0
+  }
+}

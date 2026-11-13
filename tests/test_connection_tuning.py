@@ -40,8 +40,9 @@ def test_untuned_member_matches_the_plain_network():
     matrices = layout.matrices(np.full((2, layout.size), layout.z0))
     stimulus = np.random.default_rng(1).uniform(0, 1, (4, CIRCUIT.size))
     plain, tuned = BatchedRateNetwork(CIRCUIT, 4), BatchedRateNetwork(CIRCUIT, 4, member_weights_t=matrices)
+    # Batched and plain matrix products may round the last bit differently on some BLAS builds.
     for _ in range(5):
-        np.testing.assert_array_equal(plain.step(stimulus), tuned.step(stimulus))
+        np.testing.assert_allclose(tuned.step(stimulus), plain.step(stimulus), rtol=1e-12, atol=1e-12)
 
 
 def test_batched_tuned_race_matches_the_saved_controller(tmp_path):

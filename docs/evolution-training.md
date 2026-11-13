@@ -176,8 +176,26 @@ x0.5–2 **183.1**, encoder only 198.1, earlier trained fly 198.1. Encoder-only 
 nothing better than its start; tuning the connections (mean change 8.9%, max 38.6%) cut
 15 s. It still trails both baselines. The viewer races it as "Connection-tuned fly".
 
-**Swimming** (100 m, 120 s limit): neither trained fly finishes. Encoder only learned a
-rhythm (15 strokes, 38.5 m, from 1 stroke and 17.3 m untrained); with the connections tuned
-it did worse (0 strokes, 21.2 m). Without an imitation stage the search starts from a fly
-that stalls after one stroke and gets little signal. Not shown in the viewer. A two-action
-imitation stage is the obvious next step.
+**Swimming** (100 m, 120 s limit). Without an imitation stage neither trained fly finished:
+encoder only learned a rhythm (15 strokes, 38.5 m, from 1 stroke and 17.3 m untrained), and
+with the connections tuned it did worse (0 strokes, 21.2 m); the search started from a fly
+that stalls after one stroke and got little signal.
+
+The imitation stage now also fits two-action events (one threshold), and Swimming copies
+its rule baseline's stroke timing first (150 generations), then optimises the race:
+
+```sh
+python -m experiments.train_swimming_es --gain 1.5 --pairs 64 --generations 250 --threshold-sigma 0.02 --policy models/swimming_gain1.5_long.json
+python -m experiments.train_swimming_es --gain 1.5 --pairs 64 --generations 250 --threshold-sigma 0.02 --drift 2x --policy models/swimming_connections_gain1.5_drift2x_long.json
+```
+
+| Fly | Time | Strokes |
+|---|---:|---:|
+| Rule baseline | 44.15 s | |
+| Connections within x0.5–2 | **44.90 s** | 50 |
+| Encoder only | 44.95 s | 50 |
+| Full strokes (no glides) | 45.35 s | |
+| Untrained, gain 1.5 | did not finish (17.3 m) | 1 |
+
+Both trained swimmers finish, about 0.8 s behind the rule. The 0.05 s between them is one
+time step, so tuning the connections made no real difference here. Both race in the viewer.

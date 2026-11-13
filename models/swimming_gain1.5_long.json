@@ -13,7 +13,7 @@
     "PULL"
   ],
   "thresholds": [
-    0.005347153981232131
+    -0.5656534285978304
   ],
   "hyperparameters": {
     "generations": 250,
@@ -26,19 +26,19 @@
     "train_seeds": [
       0
     ],
-    "imitation_generations": 0,
+    "imitation_generations": 150,
     "start_sigma": 0.5,
     "connection_sigma": null
   },
-  "train_fitness": -181.52728353194618,
-  "training_seconds": 464.3,
+  "train_fitness": -44.95,
+  "training_seconds": 279.5,
   "trained": {
-    "score": 181.527,
-    "finished": false,
-    "time": 120.0,
-    "position": 38.47,
-    "strokes": 15,
-    "turns": 0
+    "score": 44.95,
+    "finished": true,
+    "time": 44.95,
+    "position": 100.0,
+    "strokes": 50,
+    "turns": 1
   },
   "untrained": {
     "score": 202.681,

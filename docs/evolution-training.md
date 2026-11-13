@@ -111,3 +111,49 @@ noise is measured in [noise-robustness.md](noise-robustness.md).
 This is task-specific tuning of artificial input and output mappings around a fixed,
 connectome-derived rate model. It is not a claim about how flies learn, and the per-neuron
 encoder weights are not biological synapses.
+
+## Connection tuning at gain 1.5 (Archery and Steeplechase)
+
+The same method as the connection-tuned Hurdles fly (`docs/hurdles.md`): besides the
+encoder and thresholds, training scales every existing MANC connection's strength by a
+multiplier kept within x0.5–2. The wiring map, every sign and the MANC data stay fixed;
+gain 1.5 is a modeling choice from `docs/saturation.md`. Each event was trained twice with
+the same budget (150 imitation generations, then 250 with 64 antithetic pairs, ES seed 0):
+once with the connections frozen and once with them tuned.
+
+```sh
+python -m experiments.train_archery --gain 1.5 --pairs 64 --generations 250 --policy models/archery_gain1.5_long.json
+python -m experiments.train_archery --gain 1.5 --pairs 64 --generations 250 --drift 2x --policy models/archery_connections_gain1.5_drift2x_long.json
+python -m experiments.train_steeplechase --gain 1.5 --pairs 64 --generations 250 --policy models/steeplechase_gain1.5_long.json
+python -m experiments.train_steeplechase --gain 1.5 --pairs 64 --generations 250 --drift 2x --policy models/steeplechase_connections_gain1.5_drift2x_long.json
+```
+
+**Archery** (held-out winds 1000–1099, points per end out of 60):
+
+| Fly | Mean points | Tens | Connections changed |
+|---|---:|---:|---|
+| Rule baseline | 59.92 | 99% | – |
+| Gain 1.5, connections within x0.5–2 | **58.38** | 76% | mean 19.4%, max 89.9% |
+| Gain 1.5, encoder only | 57.78 | 70% | none |
+| FlyVis eye fly, gain 3 (`archery_eye.json`) | 55.57 | 62% | none |
+| Trained fly, gain 3 (`archery.json`) | 54.95 | 53% | none |
+
+End by end on the same winds, tuning the connections adds 0.60 points (95% interval
+±0.28; better on 52% of ends, worse on 24%, tied on 24%).
+
+**Steeplechase** (the one fixed course; score in seconds, lower is better):
+
+| Fly | Score | Clears | Hits | Splashes |
+|---|---:|---:|---:|---:|
+| Rule baseline | 121.3 | | | |
+| Gain 1.5, connections within x0.5–2 | **137.2** | 12 | 0 | 4 |
+| Gain 1.5, encoder only | 139.4 | 12 | 0 | 4 |
+| Trained fly, gain 3 (`steeplechase.json`) | 141.0 | | | |
+
+The Steeplechase course is fixed, so these scores say the circuit can be tuned to this one
+race, not that it learned steeplechase in general, and there are no held-out courses to
+test the 2.2 s gap on.
+
+Limits, as for Hurdles: one training run per setting, so the training's own randomness is
+not measured, and the tuned strengths are a model fitted to a game, not a claim about real
+synapses. The viewer races both as "Connection-tuned fly".

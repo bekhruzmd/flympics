@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "event": "steeplechase",
+  "method": "OpenAI-ES (antithetic sampling, centred-rank fitness, Adam) on encoder weights, band thresholds and MANC connection strengths (within the drift limit): teacher-forced imitation of the rule baseline (thresholds fitted exactly per candidate), then the event outcome; wiring map and dynamics frozen",
+  "encoder": "steeplechase_connections_gain1.5_drift2x_long_encoder.csv",
+  "inputs": [
+    "barrier",
+    "water",
+    "velocity",
+    "stamina",
+    "finish"
+  ],
+  "actions": [
+    "COAST",
+    "ACCELERATE",
+    "JUMP"
+  ],
+  "thresholds": [
+    -0.17451110028906877,
+    0.22077829323449388
+  ],
+  "hyperparameters": {
+    "generations": 250,
+    "pairs": 64,
+    "population": 129,
+    "weight_sigma": 0.3,
+    "threshold_sigma": 0.02,
+    "lr": 0.05,
+    "seed": 0,
+    "train_seeds": [
+      0
+    ],
+    "imitation_generations": 150,
+    "start_sigma": 0.5,
+    "connection_sigma": 0.3
+  },
+  "train_fitness": -137.20000000000002,
+  "training_seconds": 1086.4,
+  "trained": {
+    "score": 137.2,
+    "finished": true,
+    "clears": 12,
+    "hits": 0,
+    "splashes": 4,
+    "stamina_left": 0.62
+  },
+  "untrained": {
+    "score": 833.75,
+    "finished": false,
+    "clears": 0,
+    "hits": 0,
+    "splashes": 0,
+    "stamina_left": 1.0
+  },
+  "gain": 1.5,
+  "connections": {
+    "file": "steeplechase_connections_gain1.5_drift2x_long_connections.csv",
+    "low": 0.5,
+    "high": 2.0,
+    "count": 2770,
+    "mean_abs_change": 0.2154,
+    "max_abs_change": 0.8583,
+    "share_changed_over_10pct": 0.7292,
+    "share_at_a_limit": 0.0
+  }
+}

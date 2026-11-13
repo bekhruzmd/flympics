@@ -22,6 +22,8 @@ import numpy as np
 HURDLES_CONTROLLERS = ('trained', 'fly', 'rule', 'nocoast', 'random')
 # The Hurdles fly whose MANC connection strengths were tuned too (gain 1.5, up to 2x drift).
 HURDLES_CONNECTIONS_POLICY = MODELS_DIR / 'hurdles_connections_gain1.5_drift2x_long.json'
+STEEPLECHASE_CONNECTIONS_POLICY = MODELS_DIR / 'steeplechase_connections_gain1.5_drift2x_long.json'
+ARCHERY_CONNECTIONS_POLICY = MODELS_DIR / 'archery_connections_gain1.5_drift2x_long.json'
 SWIMMING_CONTROLLERS = ('fly', 'rule', 'full_strokes', 'random')
 ARCHERY_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
 STEEPLECHASE_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
@@ -103,7 +105,11 @@ def viewer_payload(seed: int) -> dict:
                 'hurdles': list(BARRIERS),
                 'water': sorted(WATER),
                 'pit_length': Steeplechase().pit_length,
-                'runs': {name: event_run(run_steeplechase, name, seed) for name in STEEPLECHASE_CONTROLLERS},
+                'runs': {
+                    **{name: event_run(run_steeplechase, name, seed) for name in STEEPLECHASE_CONTROLLERS},
+                    'connections': event_run(run_steeplechase, 'connections', seed,
+                                             controller=FlyBrainController.from_policy(STEEPLECHASE_CONNECTIONS_POLICY)),
+                },
             },
             'archery': {
                 'dt': Archery().dt,
@@ -112,7 +118,9 @@ def viewer_payload(seed: int) -> dict:
                 'ring_width': Archery().ring_width,
                 'rings': Archery().rings,
                 'runs': {**{name: event_run(run_archery, name, seed) for name in ARCHERY_CONTROLLERS},
-                         **{name: event_run(run_archery, name, seed, controller=eye_fly(name)) for name in EYE_VARIANTS}},
+                         **{name: event_run(run_archery, name, seed, controller=eye_fly(name)) for name in EYE_VARIANTS},
+                         'connections': event_run(run_archery, 'connections', seed,
+                                                  controller=FlyBrainController.from_policy(ARCHERY_CONNECTIONS_POLICY))},
                 'eye': json.loads(EYE_CALIBRATION.read_text()),
             },
         },

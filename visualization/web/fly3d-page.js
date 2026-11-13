@@ -31,6 +31,8 @@ const EVENTS = {
     label: 'Swimming', title: '100 body lengths', topSpeed: 4,
     note: 'Swimming: real fruit flies cannot swim; on water they are trapped by surface tension. This event is a game model.',
     controllers: [
+      { id: 'trained', name: 'Trained fly', note: 'MANC circuit, evolution-trained; gain 1.5' },
+      { id: 'connections', name: 'Connection-tuned fly', note: 'MANC wiring, its 2,770 strengths tuned (up to 2x); gain 1.5' },
       UNTRAINED,
       { id: 'rule', name: 'Rule', note: 'Full strokes, glides after dive and turn' },
       { id: 'full_strokes', name: 'Full strokes', note: 'Never glides' },

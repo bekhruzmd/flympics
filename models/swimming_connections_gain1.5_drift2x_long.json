@@ -13,7 +13,7 @@
     "PULL"
   ],
   "thresholds": [
-    0.018791526767270778
+    -0.46177987332083087
   ],
   "hyperparameters": {
     "generations": 250,
@@ -26,19 +26,19 @@
     "train_seeds": [
       0
     ],
-    "imitation_generations": 0,
+    "imitation_generations": 150,
     "start_sigma": 0.5,
     "connection_sigma": 0.3
   },
-  "train_fitness": -198.84776306041175,
-  "training_seconds": 991.7,
+  "train_fitness": -44.900000000000006,
+  "training_seconds": 496.4,
   "trained": {
-    "score": 198.848,
-    "finished": false,
-    "time": 120.0,
-    "position": 21.15,
-    "strokes": 0,
-    "turns": 0
+    "score": 44.9,
+    "finished": true,
+    "time": 44.9,
+    "position": 100.0,
+    "strokes": 50,
+    "turns": 1
   },
   "untrained": {
     "score": 202.681,
@@ -54,9 +54,9 @@
     "low": 0.5,
     "high": 2.0,
     "count": 2770,
-    "mean_abs_change": 0.08,
-    "max_abs_change": 0.3443,
-    "share_changed_over_10pct": 0.3256,
+    "mean_abs_change": 0.1057,
+    "max_abs_change": 0.4386,
+    "share_changed_over_10pct": 0.465,
     "share_at_a_limit": 0.0
   }
 }

@@ -24,6 +24,7 @@ HURDLES_CONTROLLERS = ('trained', 'fly', 'rule', 'nocoast', 'random')
 HURDLES_CONNECTIONS_POLICY = MODELS_DIR / 'hurdles_connections_gain1.5_drift2x_long.json'
 STEEPLECHASE_CONNECTIONS_POLICY = MODELS_DIR / 'steeplechase_connections_gain1.5_drift2x_long.json'
 ARCHERY_CONNECTIONS_POLICY = MODELS_DIR / 'archery_connections_gain1.5_drift2x_long.json'
+PACING_CONNECTIONS_POLICY = MODELS_DIR / 'pacing_connections_gain1.5_drift2x_long.json'
 SWIMMING_CONTROLLERS = ('fly', 'rule', 'full_strokes', 'random')
 ARCHERY_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
 STEEPLECHASE_CONTROLLERS = ('trained', 'fly', 'rule', 'random')
@@ -81,7 +82,11 @@ def viewer_payload(seed: int) -> dict:
             'pacing': {
                 'distance': Pacing400m().distance,
                 'dt': Pacing400m().dt,
-                'runs': {name: event_run(run_pacing, name, seed) for name in PACING_CONTROLLERS},
+                'runs': {
+                    **{name: event_run(run_pacing, name, seed) for name in PACING_CONTROLLERS},
+                    'connections': event_run(run_pacing, 'connections', seed,
+                                             controller=FlyBrainController.from_policy(PACING_CONNECTIONS_POLICY)),
+                },
             },
             'hurdles': {
                 'distance': Hurdles().distance,
